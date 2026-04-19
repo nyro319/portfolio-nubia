@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SISTEMA DE MONITOREO NEO v1.0 | Minimal Retro</title>
+    <title>SISTEMA DE MONITOREO NEO v1.0 | Portfolio Edition</title>
     
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,43 +12,20 @@
     <style>
         body { 
             font-family: 'JetBrains Mono', monospace; 
-            background-color: #000000; /* Negro liso */
+            background-color: #000000; 
             color: #22c55e; 
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
-
-        /* Estilo de fila para objetos peligrosos */
-        .danger-row {
-            background-color: rgba(220, 38, 38, 0.1); 
-            color: #4ade80;
-        }
-
-        /* Palabra PELIGRO en rojo brillante */
-        .status-danger {
-            color: #ef4444 !important; 
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .status-safe {
-            color: #166534; 
-            font-weight: bold;
-        }
-
+        .danger-row { background-color: rgba(220, 38, 38, 0.1); color: #4ade80; }
+        .status-danger { color: #ef4444 !important; font-weight: bold; text-transform: uppercase; }
+        .status-safe { color: #166534; font-weight: bold; }
         .retro-btn {
             background-color: transparent;
             border: 2px solid #22c55e;
             color: #22c55e;
             transition: all 0.2s ease;
         }
-        
-        .retro-btn:hover:not(:disabled) {
-            background-color: #22c55e;
-            color: #000000;
-        }
-
-        /* Encabezados de columna más grandes y legibles */
+        .retro-btn:hover:not(:disabled) { background-color: #22c55e; color: #000000; }
         th {
             font-size: 1.25rem; 
             font-weight: 700;
@@ -56,7 +33,6 @@
             border-bottom: 2px solid #166534;
             text-transform: uppercase;
         }
-
         input[type="date"] {
             color-scheme: dark;
             background-color: transparent;
@@ -112,7 +88,7 @@
         async function init() {
             try {
                 pyo = await loadPyodide();
-                document.getElementById('python-status').innerHTML = ">>> ESPERANDO ENTRADA DE FECHA Y COMANDO SCAN...";
+                document.getElementById('python-status').innerHTML = ">>> SISTEMA_PYTHON: ONLINE. ESPERANDO COMANDO SCAN...";
                 document.getElementById('btn-scan').disabled = false;
             } catch (e) {
                 document.getElementById('python-status').innerHTML = ">>> ERROR AL INICIAR NÚCLEO.";
@@ -130,29 +106,33 @@
             status.innerHTML = `>>> INICIANDO CONEXIÓN NASA API...<br>>>> RECUPERANDO DATOS T: ${fecha}...`;
             tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-700 animate-pulse">>>> RECUPERANDO DATOS...</td></tr>`;
 
-            // Código Python mejorado con .get() para evitar el KeyError
             const pyCode = `
 from pyodide.http import pyfetch
 import json
 
 async def fetch_data(d):
-    url = f"https://api.nasa.gov/neo/rest/v1/feed?start_date={d}&end_date={d}&api_key=DEMO_KEY"
-    resp = await pyfetch(url)
-    js = await resp.json()
-    
-    # Validación: evita error si la clave no existe en la respuesta
-    neo_data = js.get("near_earth_objects", {})
-    day_list = neo_data.get(d, [])
-    
-    res = []
-    for o in day_list:
-        res.append({
-            "n": o["name"],
-            "v": float(o["close_approach_data"][0]["relative_velocity"]["kilometers_per_hour"]),
-            "d": o["estimated_diameter"]["meters"]["estimated_diameter_max"],
-            "p": o["is_potentially_hazardous_asteroid"]
-        })
-    return json.dumps(res)
+    try:
+        url = f"https://api.nasa.gov/neo/rest/v1/feed?start_date={d}&end_date={d}&api_key=DEMO_KEY"
+        resp = await pyfetch(url)
+        js = await resp.json()
+        
+        neo_data = js.get("near_earth_objects", {})
+        # Buscamos los datos de la fecha seleccionada o cualquier fecha disponible en el rango
+        day_list = []
+        for date_key in neo_data:
+            day_list.extend(neo_data[date_key])
+        
+        res = []
+        for o in day_list:
+            res.append({
+                "n": o["name"],
+                "v": float(o["close_approach_data"][0]["relative_velocity"]["kilometers_per_hour"]),
+                "d": o["estimated_diameter"]["meters"]["estimated_diameter_max"],
+                "p": o["is_potentially_hazardous_asteroid"]
+            })
+        return json.dumps(res)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
 
 await fetch_data("${fecha}")`;
 
@@ -160,6 +140,8 @@ await fetch_data("${fecha}")`;
                 const out = await pyo.runPythonAsync(pyCode);
                 const data = JSON.parse(out);
                 
+                if (data.error) throw new Error(data.error);
+
                 if (data.length === 0) {
                     status.innerHTML = `>>> CONEXIÓN ESTABLECIDA.<br>>>> NO SE ENCONTRARON DATOS PARA LA FECHA ${fecha}.`;
                     tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-800">>>> CERO OBJETOS DETECTADOS EN ESTA FECHA.</td></tr>`;
@@ -180,7 +162,7 @@ await fetch_data("${fecha}")`;
                     tabla.appendChild(tr);
                 });
             } catch (e) {
-                status.innerHTML = `>>> ERROR CRÍTICO: ${e.message}`;
+                status.innerHTML = `>>> ERROR: ${e.message}`;
                 tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-red-700">>>> FALLO EN EL PROCESAMIENTO DE DATOS.</td></tr>`;
             }
         }
