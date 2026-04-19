@@ -3,171 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SISTEMA DE MONITOREO NEO v1.0 | Minimal Retro</title>
+    <title>Radar NASA Real-Time | Nubia</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <style>
-        /* Tipografía y Colores Base: Negro Puro y Verde Fósforo Nítido */
-        body { 
-            font-family: 'JetBrains Mono', monospace; 
-            background-color: #000000; /* Negro puro para máximo contraste */
-            color: #22c55e; /* Verde fósforo vibrante y nítido */
-            -webkit-font-smoothing: antialiased; /* Suavizado de fuente para mejor lectura */
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        /* Estilo para la fila de peligro: Sutil resaltado de fondo */
-        .danger-row {
-            background-color: rgba(220, 38, 38, 0.1); /* Fondo rojo muy oscuro y sutil */
-            color: #4ade80; /* Un verde ligeramente más claro para el texto de esta fila */
-        }
-
-        /* REQUISITO: La palabra PELIGRO en rojo puro y brillante */
-        .status-danger {
-            color: #ef4444 !important; /* Rojo neón brillante */
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        /* El estado SEGURO en un verde más tenue para dar jerarquía */
-        .status-safe {
-            color: #166534; /* Verde oscuro, menos llamativo */
-            font-weight: bold;
-        }
-
-        /* Botón Retro Limpio */
-        .retro-btn {
-            background-color: transparent;
-            border: 2px solid #22c55e;
-            color: #22c55e;
-            transition: all 0.2s ease;
-        }
-        .retro-btn:hover {
-            background-color: #22c55e;
-            color: #000000;
-        }
-
-        /* Estilo del input de fecha retro */
-        input[type="date"] {
-            color-scheme: dark;
-            background-color: transparent;
-            border: 1px solid #166534; /* Borde verde oscuro */
-            color: #22c55e;
-        }
+        body { background-color: #0a0a0a; color: #ffffff; font-family: 'Onest', sans-serif; }
+        .console-box { background: rgba(244, 114, 182, 0.05); border: 1px solid rgba(244, 114, 182, 0.2); }
+        .loader { border-top-color: #f472b6; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="min-h-screen p-6 md:p-10">
+<body class="max-w-4xl mx-auto px-6 py-12">
 
-    <div class="max-w-5xl mx-auto">
-        <header class="flex flex-col md:flex-row justify-between items-start mb-10 border-b-2 border-green-900 pb-8 gap-6">
-            <div>
-                <h1 class="text-2xl font-bold text-white tracking-tight">NEO_TRACKER</h1>
-                <p class="text-xs mt-1">BASE DE DATOS: NASA DEEP SPACE NETWORK</p>
+    <header class="mb-10 text-center">
+        <h1 class="text-3xl font-bold text-pink-300 mb-2">Radar de Asteroides NASA</h1>
+        <p class="text-slate-400 italic">Datos en tiempo real via NeoWs (Near Earth Object Web Service)</p>
+    </header>
+
+    <main class="grid gap-8">
+        <section class="console-box p-6 rounded-2xl">
+            <div id="estado" class="text-sm text-yellow-400 mb-4 flex items-center gap-2">
+                <div id="spinner" class="w-4 h-4 border-2 border-transparent loader rounded-full"></div>
+                Cargando entorno Python y protocolos de red...
             </div>
             
-            <div class="flex flex-col sm:flex-row gap-4 items-center border border-green-900 p-3 bg-black">
-                <label for="fecha-scan" class="text-xs uppercase">FECHA ANÁLISIS:</label>
-                <input type="date" id="fecha-scan" class="px-3 py-1.5 text-sm outline-none focus:border-green-400 rounded-sm">
-                <button onclick="escanearEspacio()" class="retro-btn px-6 py-1.5 rounded-sm text-sm font-bold uppercase tracking-wider">
-                    SCAN
-                </button>
-            </div>
-        </header>
+            <button id="btnEjecutar" disabled 
+                class="px-6 py-2 bg-pink-600 hover:bg-pink-500 disabled:bg-slate-700 rounded-full font-bold transition">
+                Consultar API de la NASA
+            </button>
+        </section>
 
-        <div id="status-box" class="text-xs text-green-700 mb-8 font-light italic">
-            >>> SISTEMA INICIADO<br>
-            >>> ESPERANDO ENTRADA DE FECHA Y COMANDO SCAN...
-        </div>
-
-        <div class="border border-green-900 bg-black p-2 overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="text-green-700 text-xs border-b border-green-900/50">
-                        <th class="py-4 px-3 font-normal uppercase tracking-wider">OBJ_ID</th>
-                        <th class="py-4 px-3 font-normal uppercase tracking-wider text-right">VELOCIDAD (KM/H)</th>
-                        <th class="py-4 px-3 font-normal uppercase tracking-wider text-right">DIA_MÁX (M)</th>
-                        <th class="py-4 px-3 font-normal uppercase tracking-wider text-right">ESTADO</th>
-                    </tr>
-                </thead>
-                <tbody id="lista-asteroides" class="text-sm">
-                    <tr>
-                        <td colspan="4" class="py-24 text-center text-green-800">>>> NO HAY DATOS DISPONIBLES. EJECUTE UN ESCANEO.</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
+        <section id="resultados" class="console-box p-6 rounded-2xl min-h-[300px] font-mono text-sm overflow-auto">
+            <div class="text-slate-500">> Sistema en espera...</div>
+        </section>
+    </main>
 
     <script>
-        // Establecer la fecha de hoy por defecto
-        document.getElementById('fecha-scan').valueAsDate = new Date();
-
-        async function escanearEspacio() {
-            const fecha = document.getElementById('fecha-scan').value;
-            const status = document.getElementById('status-box');
-            const tabla = document.getElementById('lista-asteroides');
-            
-            if(!fecha) { alert("SE REQUIERE FECHA ANÁLISIS."); return; }
-
-            // Actualizar log retro (instantáneo)
-            status.innerHTML = `>>> INICIANDO CONEXIÓN NASA API...<br>
-                                >>> RECUPERANDO DATOS T: ${fecha}...`;
-            
-            // Limpiar tabla
-            tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-700">>>> RECUPERANDO DATOS...</td></tr>`;
+        async function setupRadar() {
+            const btn = document.getElementById("btnEjecutar");
+            const estado = document.getElementById("estado");
+            const output = document.getElementById("resultados");
+            const spinner = document.getElementById("spinner");
 
             try {
-                // LLAMADA A TU API DE PYTHON (Asegúrate que el puerto coincida)
-                const response = await fetch(`http://127.0.0.1:8000/scan?date=${fecha}`);
+                // 1. Inicializar Pyodide
+                let pyodide = await loadPyodide();
                 
-                if (!response.ok) throw new Error("FALLO EN RESPUESTA HTTP");
+                estado.innerHTML = "✓ Conexión establecida con el motor Python.";
+                estado.classList.replace("text-yellow-400", "text-green-400");
+                spinner.classList.add("hidden");
+                btn.disabled = false;
 
-                const data = await response.json();
+                // 2. Lógica Python con acceso a Red (pyodide.http)
+                const codigoPython = `
+from pyodide.http import pyfetch
+import json
 
-                if(data.error) throw new Error(data.error);
+async def obtener_datos_nasa():
+    # URL de la API de la NASA (NeoWs) con una API KEY de demostración (DEMO_KEY)
+    url = "https://api.nasa.gov/neo/rest/v1/feed/today?detailed=true&api_key=DEMO_KEY"
+    
+    try:
+        response = await pyfetch(url)
+        if response.status == 200:
+            data = await response.json()
+            
+            # Procesamos los asteroides de hoy
+            fecha_hoy = list(data['near_earth_objects'].keys())[0]
+            asteroides = data['near_earth_objects'][fecha_hoy]
+            
+            resumen = f"REPORTE PARA LA FECHA: {fecha_hoy}\\n"
+            resumen += "="*40 + "\\n"
+            
+            for ast in asteroides[:5]: # Mostramos los primeros 5
+                nombre = ast['name']
+                diametro = ast['estimated_diameter']['meters']['estimated_diameter_max']
+                peligroso = "SÍ" if ast['is_potentially_hazardous_asteroid'] else "No"
+                resumen += f"- {nombre}: Ø {diametro:.2f}m | Peligroso: {peligroso}\\n"
+            
+            return resumen
+        else:
+            return f"Error en la API: Status {response.status}"
+    except Exception as e:
+        return f"Error de conexión: {str(e)}"
+                `;
 
-                // Actualizar log final
-                status.innerHTML = `>>> CONEXIÓN ESTABLECIDA.<br>
-                                   >>> DATOS T ${fecha} RECUPERADOS.<br>
-                                   >>> OBJETOS IDENTIFICADOS: ${data.total}.`;
+                // Ejecutamos la definición
+                await pyodide.runPythonAsync(codigoPython);
 
-                if(data.total === 0) {
-                    tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-700">>>> NO SE DETECTARON NEOs EN ESTA FECHA --</td></tr>`;
-                    return;
-                }
+                btn.onclick = async () => {
+                    output.innerHTML = '<div class="text-pink-400 italic">Contactando con los servidores de la NASA...</div>';
+                    // Llamamos a la función asíncrona de Python
+                    const resultado = await pyodide.runPythonAsync("obtener_datos_nasa()");
+                    output.innerHTML = `<pre class="text-green-300">${resultado}</pre>`;
+                };
 
-                tabla.innerHTML = "";
-
-                // MAPEO DE DATOS AL HTML LIMPIO
-                data.objetos.forEach(ast => {
-                    const tr = document.createElement('tr');
-                    
-                    // Si es peligroso, aplicamos estilo de fila diferente
-                    tr.className = `border-b border-green-900/30 hover:bg-green-900/10 transition-colors ${ast.peligro ? 'danger-row' : ''}`;
-                    
-                    // Formatear velocidad (sin decimales para limpiar)
-                    const veloc = Math.round(ast.velocidad).toLocaleString('es-ES');
-
-                    tr.innerHTML = `
-                        <td class="py-4 px-3 font-bold ${ast.peligro ? 'text-white' : 'text-green-300'}">${ast.nombre}</td>
-                        <td class="py-4 px-3 text-right opacity-90">${veloc}</td>
-                        <td class="py-4 px-3 text-right opacity-90">${ast.diametro_max.toFixed(1)}</td>
-                        <td class="py-4 px-3 text-right font-bold uppercase">
-                            ${ast.peligro ? 
-                                '<span class="status-danger">PELIGRO</span>' : // Requisito: Peligro en rojo puro
-                                '<span class="status-safe">Seguro</span>'}
-                        </td>
-                    `;
-                    tabla.appendChild(tr);
-                });
-
-            } catch (error) {
-                console.error(error);
-                status.innerHTML = `>>> ERROR CRÍTICO DETECTADO.<br>
-                                   >>> MENSAJE: ${error.message}.`;
-                tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-red-700 font-bold">>>> ERROR DE SISTEMA: FALLO EN COMUNICACIÓN API.</td></tr>`;
+            } catch (err) {
+                estado.innerText = "Error crítico de sistema.";
+                console.error(err);
             }
         }
+
+        setupRadar();
     </script>
 </body>
 </html>
