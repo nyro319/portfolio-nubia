@@ -12,102 +12,116 @@
     <style>
         body { 
             font-family: 'VT323', monospace; 
-            background-color: #000; 
-            color: #1aff1a; 
+            background-color: #050505; 
+            color: #33ff33; /* Verde más brillante para legibilidad */
             overflow-x: hidden;
         }
 
-        /* Scanlines */
-        body::after {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
-            background-size: 100% 3px, 3px 100%;
-            pointer-events: none;
-            z-index: 100;
+        /* Efecto de cristal de monitor antiguo */
+        .monitor-effect {
+            position: relative;
+            background: linear-gradient(180deg, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.05));
+            background-size: 100% 4px, 4px 100%;
         }
 
-        .terminal-container { border: 1px solid #1aff1a44; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; color: #1aff1a; }
-        th { text-align: left; border-bottom: 1px solid #1aff1a44; padding: 8px; color: #1aff1a99; font-size: 0.9rem; }
-        td { padding: 12px 8px; border-bottom: 1px solid #1aff1a22; }
-        
-        .peligro { color: #ff3333; font-weight: bold; text-shadow: 0 0 8px #ff3333; }
-        .seguro { color: #1aff1a; }
-
-        /* Mejora del selector de fecha */
-        input[type="date"] {
-            background: #050505;
-            border: 2px solid #1aff1a;
-            color: #1aff1a;
-            padding: 5px 12px;
-            font-family: inherit;
+        /* Tabla con alto contraste */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { 
+            background-color: #1a1a1a; 
+            color: #00ff00; 
+            text-align: left; 
+            padding: 12px 8px; 
+            border-bottom: 2px solid #33ff33;
+            font-size: 1.1rem;
+        }
+        td { 
+            padding: 14px 8px; 
+            border-bottom: 1px solid #1a551a; 
+            color: #ccffcc; /* Texto de datos más claro */
             font-size: 1.2rem;
+        }
+        
+        .peligro { color: #ff4444; font-weight: bold; text-shadow: 0 0 10px #ff0000; }
+        .seguro { color: #33ff33; text-shadow: 0 0 5px #00ff00; }
+
+        /* Input de fecha mejorado */
+        input[type="date"] {
+            background: #111;
+            border: 2px solid #33ff33;
+            color: #33ff33;
+            padding: 8px 15px;
+            font-family: inherit;
+            font-size: 1.4rem;
             cursor: pointer;
-            outline: none;
+            border-radius: 4px;
+            transition: all 0.3s;
         }
         input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(80%) sepia(50%) saturate(1000%) hue-rotate(80deg);
+            filter: invert(1); /* Hace que el icono del minicalendario sea blanco/visible */
+            transform: scale(1.5);
             cursor: pointer;
         }
 
-        /* Botón SCAN más visible */
+        /* Botón SCAN Gigante y Llamativo */
         #btn-scan {
-            background: transparent;
-            border: 3px solid #1aff1a;
-            color: #1aff1a;
-            padding: 5px 30px;
-            font-size: 1.5rem;
+            background: #004400;
+            border: 3px solid #33ff33;
+            color: #33ff33;
+            padding: 10px 40px;
+            font-size: 2rem;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 0 10px rgba(26, 255, 26, 0.2);
+            transition: all 0.2s;
+            box-shadow: 0 0 15px rgba(51, 255, 51, 0.3);
             text-transform: uppercase;
+            letter-spacing: 4px;
         }
 
         #btn-scan:hover:not(:disabled) { 
-            background: #1aff1a; 
+            background: #33ff33; 
             color: #000;
-            box-shadow: 0 0 20px #1aff1a;
+            box-shadow: 0 0 30px #33ff33;
+            transform: translateY(-2px);
         }
 
-        #btn-scan:active { transform: scale(0.95); }
-        
         #btn-scan:disabled { 
-            border-color: #053305;
-            color: #053305;
+            border-color: #1a331a;
+            color: #1a331a;
+            background: #050505;
+            cursor: not-allowed;
             box-shadow: none;
         }
     </style>
 </head>
-<body class="p-8">
+<body class="p-4 sm:p-10 monitor-effect">
 
-    <div class="max-w-5xl mx-auto relative z-10">
-        <header class="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
-            <div>
-                <h1 class="text-5xl font-bold tracking-widest leading-none">NEO_TRACKER</h1>
-                <p class="text-sm opacity-70 mt-1">BASE DE DATOS: NASA DEEP SPACE NETWORK</p>
+    <div class="max-w-6xl mx-auto">
+        <header class="flex flex-col lg:flex-row justify-between items-center gap-8 mb-12 border-b-4 border-green-900 pb-6">
+            <div class="text-center lg:text-left">
+                <h1 class="text-6xl font-bold tracking-tighter text-green-400" style="text-shadow: 0 0 20px #33ff33;">NEO_TRACKER</h1>
+                <p class="text-xl opacity-80 mt-2">ACCESS_LEVEL: OVERRIDE | NASA_DEEP_SPACE_NETWORK</p>
             </div>
-            <div class="flex items-center gap-6">
-                <div class="flex flex-col items-end">
-                    <span class="text-xs mb-1 opacity-50">FECHA_ANÁLISIS</span>
+            
+            <div class="flex flex-wrap justify-center items-center gap-8 bg-green-900/20 p-6 rounded-lg border border-green-800">
+                <div class="flex flex-col items-center">
+                    <span class="text-sm mb-2 font-bold uppercase tracking-widest">Temporal_Coord</span>
                     <input type="date" id="fecha-input">
                 </div>
                 <button id="btn-scan" disabled>SCAN</button>
             </div>
         </header>
 
-        <div id="logs" class="mb-8 text-lg space-y-1 h-24 overflow-hidden">
-            <div class="opacity-50">>>> SISTEMA INICIADO</div>
-            <div class="opacity-50" id="python-status">>>> CARGANDO NÚCLEO...</div>
+        <div id="logs" class="mb-6 text-xl space-y-1 h-32 overflow-y-auto font-bold border-l-4 border-green-800 pl-4 bg-black/30">
+            <div class="text-green-700">>>> KERNEL_INIT_SUCCESSFUL...</div>
+            <div id="python-status" class="text-yellow-600">>>> LOADING_PYTHON_WASM_CORES...</div>
         </div>
 
-        <div class="terminal-container min-h-[400px] p-4 bg-[#050505]">
-            <div id="output" class="w-full overflow-x-auto text-center py-24 opacity-40 text-2xl">
-                >>> ESPERANDO ENTRADA DE FECHA Y COMANDO SCAN...
+        <div class="border-2 border-green-900 p-2 rounded-lg bg-black/60">
+            <div id="output" class="w-full overflow-x-auto min-h-[500px]">
+                <div class="flex items-center justify-center h-[500px] text-3xl opacity-30 animate-pulse">
+                    [ WAITING_FOR_COMMAND_INPUT ]
+                </div>
             </div>
         </div>
     </div>
@@ -119,14 +133,15 @@
             const btn = document.getElementById("btn-scan");
             const pythonStatus = document.getElementById("python-status");
 
-            // Establecer fecha de hoy por defecto
+            // Fecha de hoy por defecto
             document.getElementById("fecha-input").valueAsDate = new Date();
 
             try {
                 const pyodide = await loadPyodide();
                 await pyodide.loadPackage("pandas");
                 
-                pythonStatus.innerText = ">>> SISTEMA_PYTHON: ONLINE";
+                pythonStatus.innerText = ">>> SYSTEM_STATUS: ONLINE_AND_READY";
+                pythonStatus.classList.replace("text-yellow-600", "text-green-500");
                 btn.disabled = false;
 
                 const code = `
@@ -143,15 +158,15 @@ async def run_scan(fecha):
         for o in data["near_earth_objects"][f]:
             all_objs.append({
                 "OBJ_ID": o["name"],
-                "VELOCIDAD (KM/H)": f"{float(o['close_approach_data'][0]['relative_velocity']['kilometers_per_hour']):,.0f}",
-                "DIA_MÁX (M)": f"{o['estimated_diameter']['meters']['estimated_diameter_max']:.1f}",
-                "ESTADO": "PELIGRO" if o["is_potentially_hazardous_asteroid"] else "SEGURO"
+                "KM/H": f"{float(o['close_approach_data'][0]['relative_velocity']['kilometers_per_hour']):,.0f}",
+                "DIAMETER (M)": f"{o['estimated_diameter']['meters']['estimated_diameter_max']:.1f}",
+                "THREAT_LEVEL": "CRITICAL" if o["is_potentially_hazardous_asteroid"] else "SAFE"
             })
     
     df = pd.DataFrame(all_objs)
     html = df.to_html(index=False, border=0)
-    html = html.replace("PELIGRO", "<span class='peligro'>PELIGRO</span>")
-    html = html.replace("SEGURO", "<span class='seguro'>SEGURO</span>")
+    html = html.replace("CRITICAL", "<span class='peligro'>CRITICAL</span>")
+    html = html.replace("SAFE", "<span class='seguro'>SAFE</span>")
     return len(all_objs), html
                 `;
                 await pyodide.runPythonAsync(code);
@@ -160,20 +175,19 @@ async def run_scan(fecha):
                     const fecha = document.getElementById("fecha-input").value;
                     if(!fecha) return;
 
-                    output.innerHTML = "<div class='py-24 animate-pulse'>>>> RECUPERANDO DATOS DE TELEMETRÍA...</div>";
-                    logs.innerHTML += `<div>>>> PETICIÓN NASA_API: ${fecha}</div>`;
+                    output.innerHTML = "<div class='flex items-center justify-center h-[500px] text-4xl text-green-400 animate-bounce'>UPLOADING_NASA_QUERY...</div>";
+                    logs.innerHTML += `<div class="text-blue-500">>>> EXEC_SCAN: COORDS_${fecha}</div>`;
 
                     const [count, tableHtml] = await pyodide.runPythonAsync(`await run_scan("${fecha}")`);
                     
-                    logs.innerHTML += `<div class='text-green-400'>>>> ${count} OBJETOS IDENTIFICADOS. MOSTRANDO DATOS...</div>`;
+                    logs.innerHTML += `<div class='text-green-400'>>>> SCAN_COMPLETE: ${count} OBJECTS_FOUND.</div>`;
                     output.innerHTML = tableHtml;
-                    
-                    // Auto-scroll logs
                     logs.scrollTop = logs.scrollHeight;
                 };
 
             } catch (e) {
-                pythonStatus.innerText = ">>> ERROR_CRÍTICO_NÚCLEO.";
+                pythonStatus.innerText = ">>> CORE_DUMP_DETECTED.";
+                pythonStatus.classList.replace("text-yellow-600", "text-red-600");
             }
         }
         init();
