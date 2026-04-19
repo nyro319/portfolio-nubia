@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA DE MONITOREO NEO v1.0 | Minimal Retro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Tipografía y Colores Base: Negro Puro y Verde Fósforo Nítido */
+        body { 
+            font-family: 'JetBrains Mono', monospace; 
+            background-color: #000000; /* Negro puro para máximo contraste */
+            color: #22c55e; /* Verde fósforo vibrante y nítido */
+            -webkit-font-smoothing: antialiased; /* Suavizado de fuente para mejor lectura */
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Estilo para la fila de peligro: Sutil resaltado de fondo */
+        .danger-row {
+            background-color: rgba(220, 38, 38, 0.1); /* Fondo rojo muy oscuro y sutil */
+            color: #4ade80; /* Un verde ligeramente más claro para el texto de esta fila */
+        }
+
+        /* REQUISITO: La palabra PELIGRO en rojo puro y brillante */
+        .status-danger {
+            color: #ef4444 !important; /* Rojo neón brillante */
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* El estado SEGURO en un verde más tenue para dar jerarquía */
+        .status-safe {
+            color: #166534; /* Verde oscuro, menos llamativo */
+            font-weight: bold;
+        }
+
+        /* Botón Retro Limpio */
+        .retro-btn {
+            background-color: transparent;
+            border: 2px solid #22c55e;
+            color: #22c55e;
+            transition: all 0.2s ease;
+        }
+        .retro-btn:hover {
+            background-color: #22c55e;
+            color: #000000;
+        }
+
+        /* Estilo del input de fecha retro */
+        input[type="date"] {
+            color-scheme: dark;
+            background-color: transparent;
+            border: 1px solid #166534; /* Borde verde oscuro */
+            color: #22c55e;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-6 md:p-10">
+
+    <div class="max-w-5xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start mb-10 border-b-2 border-green-900 pb-8 gap-6">
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">NEO_TRACKER</h1>
+                <p class="text-xs mt-1">BASE DE DATOS: NASA DEEP SPACE NETWORK</p>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-4 items-center border border-green-900 p-3 bg-black">
+                <label for="fecha-scan" class="text-xs uppercase">FECHA ANÁLISIS:</label>
+                <input type="date" id="fecha-scan" class="px-3 py-1.5 text-sm outline-none focus:border-green-400 rounded-sm">
+                <button onclick="escanearEspacio()" class="retro-btn px-6 py-1.5 rounded-sm text-sm font-bold uppercase tracking-wider">
+                    SCAN
+                </button>
+            </div>
+        </header>
+
+        <div id="status-box" class="text-xs text-green-700 mb-8 font-light italic">
+            >>> SISTEMA INICIADO<br>
+            >>> ESPERANDO ENTRADA DE FECHA Y COMANDO SCAN...
+        </div>
+
+        <div class="border border-green-900 bg-black p-2 overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="text-green-700 text-xs border-b border-green-900/50">
+                        <th class="py-4 px-3 font-normal uppercase tracking-wider">OBJ_ID</th>
+                        <th class="py-4 px-3 font-normal uppercase tracking-wider text-right">VELOCIDAD (KM/H)</th>
+                        <th class="py-4 px-3 font-normal uppercase tracking-wider text-right">DIA_MÁX (M)</th>
+                        <th class="py-4 px-3 font-normal uppercase tracking-wider text-right">ESTADO</th>
+                    </tr>
+                </thead>
+                <tbody id="lista-asteroides" class="text-sm">
+                    <tr>
+                        <td colspan="4" class="py-24 text-center text-green-800">>>> NO HAY DATOS DISPONIBLES. EJECUTE UN ESCANEO.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Establecer la fecha de hoy por defecto
+        document.getElementById('fecha-scan').valueAsDate = new Date();
+
+        async function escanearEspacio() {
+            const fecha = document.getElementById('fecha-scan').value;
+            const status = document.getElementById('status-box');
+            const tabla = document.getElementById('lista-asteroides');
+            
+            if(!fecha) { alert("SE REQUIERE FECHA ANÁLISIS."); return; }
+
+            // Actualizar log retro (instantáneo)
+            status.innerHTML = `>>> INICIANDO CONEXIÓN NASA API...<br>
+                                >>> RECUPERANDO DATOS T: ${fecha}...`;
+            
+            // Limpiar tabla
+            tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-700">>>> RECUPERANDO DATOS...</td></tr>`;
+
+            try {
+                // LLAMADA A TU API DE PYTHON (Asegúrate que el puerto coincida)
+                const response = await fetch(`http://127.0.0.1:8000/scan?date=${fecha}`);
+                
+                if (!response.ok) throw new Error("FALLO EN RESPUESTA HTTP");
+
+                const data = await response.json();
+
+                if(data.error) throw new Error(data.error);
+
+                // Actualizar log final
+                status.innerHTML = `>>> CONEXIÓN ESTABLECIDA.<br>
+                                   >>> DATOS T ${fecha} RECUPERADOS.<br>
+                                   >>> OBJETOS IDENTIFICADOS: ${data.total}.`;
+
+                if(data.total === 0) {
+                    tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-700">>>> NO SE DETECTARON NEOs EN ESTA FECHA --</td></tr>`;
+                    return;
+                }
+
+                tabla.innerHTML = "";
+
+                // MAPEO DE DATOS AL HTML LIMPIO
+                data.objetos.forEach(ast => {
+                    const tr = document.createElement('tr');
+                    
+                    // Si es peligroso, aplicamos estilo de fila diferente
+                    tr.className = `border-b border-green-900/30 hover:bg-green-900/10 transition-colors ${ast.peligro ? 'danger-row' : ''}`;
+                    
+                    // Formatear velocidad (sin decimales para limpiar)
+                    const veloc = Math.round(ast.velocidad).toLocaleString('es-ES');
+
+                    tr.innerHTML = `
+                        <td class="py-4 px-3 font-bold ${ast.peligro ? 'text-white' : 'text-green-300'}">${ast.nombre}</td>
+                        <td class="py-4 px-3 text-right opacity-90">${veloc}</td>
+                        <td class="py-4 px-3 text-right opacity-90">${ast.diametro_max.toFixed(1)}</td>
+                        <td class="py-4 px-3 text-right font-bold uppercase">
+                            ${ast.peligro ? 
+                                '<span class="status-danger">PELIGRO</span>' : // Requisito: Peligro en rojo puro
+                                '<span class="status-safe">Seguro</span>'}
+                        </td>
+                    `;
+                    tabla.appendChild(tr);
+                });
+
+            } catch (error) {
+                console.error(error);
+                status.innerHTML = `>>> ERROR CRÍTICO DETECTADO.<br>
+                                   >>> MENSAJE: ${error.message}.`;
+                tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-red-700 font-bold">>>> ERROR DE SISTEMA: FALLO EN COMUNICACIÓN API.</td></tr>`;
+            }
+        }
+    </script>
+</body>
+</html>

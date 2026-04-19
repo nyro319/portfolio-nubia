@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll System | Junior Portfolio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#f8fafc] min-h-screen py-12 px-4">
+
+    <div class="max-w-2xl mx-auto">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Sistema de Gestión de Nóminas</h1>
+            <p class="text-slate-500 mt-2 text-lg">Cálculo de retenciones IRPF basado en lógica Python OOP</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-sm font-bold text-blue-600 uppercase tracking-wider mb-6">Datos del Empleado</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase">Nombre Completo</label>
+                        <input type="text" id="nombre" placeholder="Ej. Alberto García" class="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase">Puesto Laboral</label>
+                        <input type="text" id="puesto" placeholder="Ej. Docente" class="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500 uppercase">Salario Bruto Mensual (€)</label>
+                        <input type="number" id="nomina" placeholder="2400" class="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+                    </div>
+                    <button onclick="enviarDatos()" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-blue-200 active:scale-[0.98]">
+                        Procesar Nómina
+                    </button>
+                </div>
+            </div>
+
+            <div id="resultado" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center items-center text-center opacity-30 transition-opacity duration-500">
+                <div id="placeholder-text">
+                    <div class="bg-slate-100 p-4 rounded-full mb-4 inline-block">
+                        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <p class="text-slate-400 font-medium">Introduce datos para generar el desglose</p>
+                </div>
+
+                <div id="datos-salida" class="hidden w-full text-left">
+                    <h2 class="text-sm font-bold text-green-600 uppercase tracking-wider mb-6 text-center">Desglose Calculado</h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between border-b border-slate-50 pb-2">
+                            <span class="text-slate-500 italic" id="res-puesto"></span>
+                            <span class="font-bold text-slate-900" id="res-nombre"></span>
+                        </div>
+                        <div class="flex justify-between pt-2">
+                            <span class="text-slate-500">Anual Bruto:</span>
+                            <span class="font-semibold" id="res-anual"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Retención IRPF:</span>
+                            <span class="font-semibold text-red-500" id="res-irpf"></span>
+                        </div>
+                        <div class="mt-6 bg-blue-50 p-4 rounded-xl text-center">
+                            <span class="block text-xs text-blue-600 font-bold uppercase">Salario Neto Anual</span>
+                            <span class="text-3xl font-black text-blue-700" id="res-neto"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function enviarDatos() {
+            const nombre = document.getElementById('nombre').value;
+            const puesto = document.getElementById('puesto').value;
+            const nomina = document.getElementById('nomina').value;
+
+            if(!nombre || !nomina) {
+                alert("Por favor, rellena los campos principales.");
+                return;
+            }
+
+            try {
+                const respuesta = await fetch('http://127.0.0.1:8000/calcular', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombre: nombre,
+                        puesto: puesto,
+                        nomina_mensual: parseFloat(nomina)
+                    })
+                });
+
+                const data = await respuesta.json();
+
+                // Animación y visualización
+                document.getElementById('resultado').classList.remove('opacity-30');
+                document.getElementById('placeholder-text').classList.add('hidden');
+                document.getElementById('datos-salida').classList.remove('hidden');
+
+                document.getElementById('res-nombre').innerText = data.nombre;
+                document.getElementById('res-puesto').innerText = data.puesto;
+                document.getElementById('res-anual').innerText = data.anual_bruta.toLocaleString('es-ES') + " €";
+                document.getElementById('res-irpf').innerText = "-" + data.irpf.toLocaleString('es-ES') + " €";
+                document.getElementById('res-neto').innerText = data.neto_anual.toLocaleString('es-ES') + " €";
+                
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Error de conexión: Asegúrate de que el servidor FastAPI esté encendido.");
+            }
+        }
+    </script>
+</body>
+</html>
