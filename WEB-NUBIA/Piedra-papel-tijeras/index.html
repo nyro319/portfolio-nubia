@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT Game | Marcador Compacto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        .font-game { font-family: 'Bungee', cursive; }
+        .choice-btn:hover { transform: translateY(-5px) scale(1.05); }
+        .score-pop { transform: scale(1.2); color: #fbbf24; transition: all 0.2s; }
+    </style>
+</head>
+<body class="bg-indigo-950 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border-[10px] border-indigo-400">
+        
+        <div class="bg-indigo-600 p-8 text-center">
+            <h1 class="text-white font-game text-xl tracking-widest mb-6">PIEDRA PAPEL TIJERAS</h1>
+            
+            <div class="max-w-[260px] mx-auto flex justify-between items-center bg-indigo-900/40 py-3 px-6 rounded-2xl border border-indigo-400/30 shadow-inner">
+                <div class="flex flex-col items-center">
+                    <span class="text-[9px] text-indigo-200 font-bold uppercase tracking-tighter mb-1">Jugador</span>
+                    <span id="score-user" class="font-game text-3xl text-white transition-all">0</span>
+                </div>
+
+                <div class="px-4 border-x border-indigo-500/30">
+                    <button onclick="resetearMarcador()" class="p-2 text-indigo-300 hover:text-red-400 transition-colors active:rotate-180" title="Reiniciar">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="flex flex-col items-center">
+                    <span class="text-[9px] text-indigo-200 font-bold uppercase tracking-tighter mb-1">Bot</span>
+                    <span id="score-bot" class="font-game text-3xl text-white transition-all">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-8">
+            <div class="grid grid-cols-3 gap-3 mb-10">
+                <button onclick="enviarJugada('piedra')" class="choice-btn transition-all duration-300 bg-slate-50 p-5 rounded-2xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1">
+                    <span class="text-4xl block mb-2">🪨</span>
+                    <span class="font-game text-[9px] text-slate-500">PIEDRA</span>
+                </button>
+                <button onclick="enviarJugada('papel')" class="choice-btn transition-all duration-300 bg-slate-50 p-5 rounded-2xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1">
+                    <span class="text-4xl block mb-2">📄</span>
+                    <span class="font-game text-[9px] text-slate-500">PAPEL</span>
+                </button>
+                <button onclick="enviarJugada('tijeras')" class="choice-btn transition-all duration-300 bg-slate-50 p-5 rounded-2xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1">
+                    <span class="text-4xl block mb-2">✂️</span>
+                    <span class="font-game text-[9px] text-slate-500">TIJERAS</span>
+                </button>
+            </div>
+
+            <div id="pantalla-resultado" class="hidden">
+                <div class="flex justify-around items-center bg-indigo-50 p-5 rounded-2xl border-2 border-indigo-100 mb-6">
+                    <div class="text-center">
+                        <div id="icon-user" class="text-4xl mb-1"></div>
+                        <span class="text-[9px] font-bold text-indigo-400 uppercase">Tú</span>
+                    </div>
+                    <div class="font-game text-lg text-indigo-300">VS</div>
+                    <div class="text-center">
+                        <div id="icon-bot" class="text-4xl mb-1"></div>
+                        <span class="text-[9px] font-bold text-indigo-400 uppercase">Bot</span>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <h2 id="texto-resultado" class="font-game text-3xl mb-4"></h2>
+                    <button onclick="reiniciar()" class="text-indigo-500 font-bold text-xs uppercase tracking-widest hover:underline">Siguiente Ronda</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const iconos = { 'piedra': '🪨', 'papel': '📄', 'tijeras': '✂️' };
+        let vJugador = 0, vBot = 0;
+
+        async function enviarJugada(eleccion) {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/jugar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ eleccion_usuario: eleccion })
+                });
+                const data = await response.json();
+
+                // Actualizar iconos y texto
+                document.getElementById('icon-user').innerText = iconos[data.usuario];
+                document.getElementById('icon-bot').innerText = iconos[data.computadora];
+                
+                const textoRes = document.getElementById('texto-resultado');
+                textoRes.innerText = data.resultado;
+                
+                // Marcador
+                if (data.status === 'win') {
+                    vJugador++;
+                    updateScore('score-user', vJugador);
+                } else if (data.status === 'lose') {
+                    vBot++;
+                    updateScore('score-bot', vBot);
+                }
+
+                textoRes.className = "font-game text-3xl mb-4 " + 
+                    (data.status === 'win' ? 'text-green-500' : data.status === 'lose' ? 'text-red-500' : 'text-orange-400');
+
+                document.getElementById('pantalla-resultado').classList.remove('hidden');
+            } catch (e) {
+                alert("Servidor Python (uvicorn) apagado.");
+            }
+        }
+
+        function updateScore(id, val) {
+            const el = document.getElementById(id);
+            el.innerText = val;
+            el.classList.add('score-pop');
+            setTimeout(() => el.classList.remove('score-pop'), 200);
+        }
+
+        function reiniciar() {
+            document.getElementById('pantalla-resultado').classList.add('hidden');
+        }
+
+        function resetearMarcador() {
+            vJugador = 0; vBot = 0;
+            document.getElementById('score-user').innerText = "0";
+            document.getElementById('score-bot').innerText = "0";
+            reiniciar();
+        }
+    </script>
+</body>
+</html>
