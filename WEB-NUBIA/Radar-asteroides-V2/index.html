@@ -17,7 +17,7 @@
             overflow-x: hidden;
         }
 
-        /* Líneas de escaneo de monitor antiguo */
+        /* Scanlines */
         body::after {
             content: "";
             position: fixed;
@@ -31,7 +31,6 @@
 
         .terminal-container { border: 1px solid #1aff1a44; }
         
-        /* Estilo de la tabla de Pandas igual al video */
         table { width: 100%; border-collapse: collapse; margin-top: 20px; color: #1aff1a; }
         th { text-align: left; border-bottom: 1px solid #1aff1a44; padding: 8px; color: #1aff1a99; font-size: 0.9rem; }
         td { padding: 12px 8px; border-bottom: 1px solid #1aff1a22; }
@@ -39,50 +38,76 @@
         .peligro { color: #ff3333; font-weight: bold; text-shadow: 0 0 8px #ff3333; }
         .seguro { color: #1aff1a; }
 
+        /* Mejora del selector de fecha */
         input[type="date"] {
-            background: transparent;
-            border: 1px solid #1aff1a;
+            background: #050505;
+            border: 2px solid #1aff1a;
             color: #1aff1a;
-            padding: 2px 8px;
+            padding: 5px 12px;
             font-family: inherit;
-        }
-
-        button {
-            background: transparent;
-            border: 1px solid #1aff1a;
-            color: #1aff1a;
-            padding: 2px 20px;
+            font-size: 1.2rem;
             cursor: pointer;
-            transition: all 0.2s;
+            outline: none;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(80%) sepia(50%) saturate(1000%) hue-rotate(80deg);
+            cursor: pointer;
         }
 
-        button:hover:not(:disabled) { background: #1aff1a; color: #000; }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        /* Botón SCAN más visible */
+        #btn-scan {
+            background: transparent;
+            border: 3px solid #1aff1a;
+            color: #1aff1a;
+            padding: 5px 30px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 10px rgba(26, 255, 26, 0.2);
+            text-transform: uppercase;
+        }
+
+        #btn-scan:hover:not(:disabled) { 
+            background: #1aff1a; 
+            color: #000;
+            box-shadow: 0 0 20px #1aff1a;
+        }
+
+        #btn-scan:active { transform: scale(0.95); }
+        
+        #btn-scan:disabled { 
+            border-color: #053305;
+            color: #053305;
+            box-shadow: none;
+        }
     </style>
 </head>
 <body class="p-8">
 
     <div class="max-w-5xl mx-auto relative z-10">
-        <header class="flex justify-between items-start mb-12">
+        <header class="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
             <div>
-                <h1 class="text-4xl font-bold tracking-widest">NEO_TRACKER</h1>
-                <p class="text-sm opacity-70">BASE DE DATOS: NASA DEEP SPACE NETWORK</p>
+                <h1 class="text-5xl font-bold tracking-widest leading-none">NEO_TRACKER</h1>
+                <p class="text-sm opacity-70 mt-1">BASE DE DATOS: NASA DEEP SPACE NETWORK</p>
             </div>
-            <div class="flex items-center gap-4">
-                <span class="text-sm">FECHA ANÁLISIS:</span>
-                <input type="date" id="fecha-input">
+            <div class="flex items-center gap-6">
+                <div class="flex flex-col items-end">
+                    <span class="text-xs mb-1 opacity-50">FECHA_ANÁLISIS</span>
+                    <input type="date" id="fecha-input">
+                </div>
                 <button id="btn-scan" disabled>SCAN</button>
             </div>
         </header>
 
-        <div id="logs" class="mb-8 text-lg space-y-1">
+        <div id="logs" class="mb-8 text-lg space-y-1 h-24 overflow-hidden">
             <div class="opacity-50">>>> SISTEMA INICIADO</div>
             <div class="opacity-50" id="python-status">>>> CARGANDO NÚCLEO...</div>
         </div>
 
         <div class="terminal-container min-h-[400px] p-4 bg-[#050505]">
-            <div id="output" class="w-full overflow-x-auto text-center py-20 opacity-40">
-                >>> NO HAY DATOS DISPONIBLES. EJECUTE UN ESCANEO.
+            <div id="output" class="w-full overflow-x-auto text-center py-24 opacity-40 text-2xl">
+                >>> ESPERANDO ENTRADA DE FECHA Y COMANDO SCAN...
             </div>
         </div>
     </div>
@@ -94,17 +119,19 @@
             const btn = document.getElementById("btn-scan");
             const pythonStatus = document.getElementById("python-status");
 
+            // Establecer fecha de hoy por defecto
+            document.getElementById("fecha-input").valueAsDate = new Date();
+
             try {
                 const pyodide = await loadPyodide();
                 await pyodide.loadPackage("pandas");
                 
-                pythonStatus.innerText = ">>> ESPERANDO ENTRADA DE FECHA Y COMANDO SCAN...";
+                pythonStatus.innerText = ">>> SISTEMA_PYTHON: ONLINE";
                 btn.disabled = false;
 
                 const code = `
 from pyodide.http import pyfetch
 import pandas as pd
-import json
 
 async def run_scan(fecha):
     url = f"https://api.nasa.gov/neo/rest/v1/feed?start_date={fecha}&api_key=DEMO_KEY"
@@ -122,7 +149,6 @@ async def run_scan(fecha):
             })
     
     df = pd.DataFrame(all_objs)
-    # Convertimos a HTML y aplicamos clases de color
     html = df.to_html(index=False, border=0)
     html = html.replace("PELIGRO", "<span class='peligro'>PELIGRO</span>")
     html = html.replace("SEGURO", "<span class='seguro'>SEGURO</span>")
@@ -134,22 +160,20 @@ async def run_scan(fecha):
                     const fecha = document.getElementById("fecha-input").value;
                     if(!fecha) return;
 
-                    // Mensajes de log como en el video
-                    output.innerHTML = "<div class='py-20 animate-pulse'>>>> RECUPERANDO DATOS...</div>";
-                    logs.innerHTML += `<div>>>> INICIANDO CONEXIÓN NASA API...</div>`;
-                    logs.innerHTML += `<div>>>> RECUPERANDO DATOS T: ${fecha}...</div>`;
+                    output.innerHTML = "<div class='py-24 animate-pulse'>>>> RECUPERANDO DATOS DE TELEMETRÍA...</div>";
+                    logs.innerHTML += `<div>>>> PETICIÓN NASA_API: ${fecha}</div>`;
 
                     const [count, tableHtml] = await pyodide.runPythonAsync(`await run_scan("${fecha}")`);
                     
-                    logs.innerHTML += `<div class='text-green-400'>>>> CONEXIÓN ESTABLECIDA.</div>`;
-                    logs.innerHTML += `<div class='text-green-400'>>>> DATOS T: ${fecha} RECUPERADOS.</div>`;
-                    logs.innerHTML += `<div class='text-green-400'>>>> OBJETOS IDENTIFICADOS: ${count}.</div>`;
-                    
+                    logs.innerHTML += `<div class='text-green-400'>>>> ${count} OBJETOS IDENTIFICADOS. MOSTRANDO DATOS...</div>`;
                     output.innerHTML = tableHtml;
+                    
+                    // Auto-scroll logs
+                    logs.scrollTop = logs.scrollHeight;
                 };
 
             } catch (e) {
-                pythonStatus.innerText = ">>> ERROR CRÍTICO EN NÚCLEO.";
+                pythonStatus.innerText = ">>> ERROR_CRÍTICO_NÚCLEO.";
             }
         }
         init();
