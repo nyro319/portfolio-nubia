@@ -3,27 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SISTEMA DE MONITOREO NEO v1.0 | Pyodide Edition</title>
+    <title>SISTEMA DE MONITOREO NEO v1.0 | Minimal Retro</title>
     
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
         body { 
             font-family: 'JetBrains Mono', monospace; 
-            background-color: #000000; 
+            background-color: #000000; /* Negro liso */
             color: #22c55e; 
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
+        /* Estilo de fila para objetos peligrosos */
         .danger-row {
             background-color: rgba(220, 38, 38, 0.1); 
             color: #4ade80;
         }
 
+        /* Palabra PELIGRO en rojo brillante */
         .status-danger {
             color: #ef4444 !important; 
             font-weight: bold;
@@ -41,13 +42,19 @@
             color: #22c55e;
             transition: all 0.2s ease;
         }
+        
         .retro-btn:hover:not(:disabled) {
             background-color: #22c55e;
             color: #000000;
         }
-        .retro-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
+
+        /* Encabezados de columna más grandes y legibles */
+        th {
+            font-size: 1.25rem; 
+            font-weight: 700;
+            color: #22c55e;
+            border-bottom: 2px solid #166534;
+            text-transform: uppercase;
         }
 
         input[type="date"] {
@@ -55,13 +62,6 @@
             background-color: transparent;
             border: 1px solid #166534;
             color: #22c55e;
-        }
-
-        /* Ajuste para que los encabezados de tabla sean legibles y grandes */
-        th {
-            font-size: 1.1rem; /* Un poco más grandes como pediste */
-            color: #22c55e;
-            border-bottom: 2px solid #166534;
         }
     </style>
 </head>
@@ -85,17 +85,17 @@
 
         <div id="status-box" class="text-xs text-green-700 mb-8 font-light italic">
             >>> SISTEMA INICIADO<br>
-            <span id="python-status">>>> CARGANDO NÚCLEO PYTHON (WASM)...</span>
+            <span id="python-status">>>> CARGANDO NÚCLEO...</span>
         </div>
 
         <div class="border border-green-900 bg-black p-2 overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="text-green-700">
-                        <th class="py-4 px-3 font-bold uppercase tracking-wider">OBJ_ID</th>
-                        <th class="py-4 px-3 font-bold uppercase tracking-wider text-right">VELOCIDAD (KM/H)</th>
-                        <th class="py-4 px-3 font-bold uppercase tracking-wider text-right">DIA_MÁX (M)</th>
-                        <th class="py-4 px-3 font-bold uppercase tracking-wider text-right">ESTADO</th>
+                    <tr>
+                        <th class="py-4 px-3 tracking-wider">OBJ_ID</th>
+                        <th class="py-4 px-3 tracking-wider text-right">VELOCIDAD (KM/H)</th>
+                        <th class="py-4 px-3 tracking-wider text-right">DIA_MÁX (M)</th>
+                        <th class="py-4 px-3 tracking-wider text-right">ESTADO</th>
                     </tr>
                 </thead>
                 <tbody id="lista-asteroides" class="text-sm">
@@ -109,27 +109,17 @@
 
     <script>
         let pyo;
-
-        // 1. Inicializar Pyodide al cargar
-        async function initPyodide() {
-            const statusLabel = document.getElementById('python-status');
-            const btn = document.getElementById('btn-scan');
-            
+        async function init() {
             try {
                 pyo = await loadPyodide();
-                // Opcional: Cargar pandas si lo necesitas para cálculos complejos
-                // await pyo.loadPackage("pandas"); 
-                
-                statusLabel.innerHTML = ">>> NÚCLEO ONLINE. ESPERANDO COMANDO SCAN...";
-                btn.disabled = false;
+                document.getElementById('python-status').innerHTML = ">>> ESPERANDO ENTRADA DE FECHA Y COMANDO SCAN...";
+                document.getElementById('btn-scan').disabled = false;
             } catch (e) {
-                statusLabel.innerHTML = ">>> ERROR AL INICIALIZAR NÚCLEO.";
+                document.getElementById('python-status').innerHTML = ">>> ERROR AL INICIAR NÚCLEO.";
             }
         }
+        init();
 
-        initPyodide();
-
-        // 2. Establecer fecha de hoy
         document.getElementById('fecha-scan').valueAsDate = new Date();
 
         async function escanearEspacio() {
@@ -137,71 +127,61 @@
             const status = document.getElementById('status-box');
             const tabla = document.getElementById('lista-asteroides');
             
-            if(!fecha) return;
-
             status.innerHTML = `>>> INICIANDO CONEXIÓN NASA API...<br>>>> RECUPERANDO DATOS T: ${fecha}...`;
-            tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-700 animate-pulse">>>> RECUPERANDO DATOS DEL ESPACIO PROFUNDO...</td></tr>`;
+            tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-700 animate-pulse">>>> RECUPERANDO DATOS...</td></tr>`;
 
-            // Lógica de Python dentro de JS usando Pyodide
-            const pythonCode = `
+            // Código Python mejorado con .get() para evitar el KeyError
+            const pyCode = `
 from pyodide.http import pyfetch
 import json
 
-async def get_nasa_data(date_str):
-    url = f"https://api.nasa.gov/neo/rest/v1/feed?start_date={date_str}&end_date={date_str}&api_key=DEMO_KEY"
-    response = await pyfetch(url)
-    data = await response.json()
+async def fetch_data(d):
+    url = f"https://api.nasa.gov/neo/rest/v1/feed?start_date={d}&end_date={d}&api_key=DEMO_KEY"
+    resp = await pyfetch(url)
+    js = await resp.json()
     
-    asteroids = data["near_earth_objects"][date_str]
-    results = []
+    # Validación: evita error si la clave no existe en la respuesta
+    neo_data = js.get("near_earth_objects", {})
+    day_list = neo_data.get(d, [])
     
-    for a in asteroids:
-        results.append({
-            "nombre": a["name"],
-            "velocidad": float(a["close_approach_data"][0]["relative_velocity"]["kilometers_per_hour"]),
-            "diametro": a["estimated_diameter"]["meters"]["estimated_diameter_max"],
-            "peligro": a["is_potentially_hazardous_asteroid"]
+    res = []
+    for o in day_list:
+        res.append({
+            "n": o["name"],
+            "v": float(o["close_approach_data"][0]["relative_velocity"]["kilometers_per_hour"]),
+            "d": o["estimated_diameter"]["meters"]["estimated_diameter_max"],
+            "p": o["is_potentially_hazardous_asteroid"]
         })
-    return json.dumps(results)
+    return json.dumps(res)
 
-await get_nasa_data("${fecha}")
-            `;
+await fetch_data("${fecha}")`;
 
             try {
-                const resultJson = await pyo.runPythonAsync(pythonCode);
-                const objetos = JSON.parse(resultJson);
-
-                status.innerHTML = `>>> CONEXIÓN ESTABLECIDA.<br>>>> DATOS T ${fecha} RECUPERADOS.<br>>>> OBJETOS IDENTIFICADOS: ${objetos.length}.`;
-
-                if(objetos.length === 0) {
-                    tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-700">>>> NO SE DETECTARON NEOs --</td></tr>`;
+                const out = await pyo.runPythonAsync(pyCode);
+                const data = JSON.parse(out);
+                
+                if (data.length === 0) {
+                    status.innerHTML = `>>> CONEXIÓN ESTABLECIDA.<br>>>> NO SE ENCONTRARON DATOS PARA LA FECHA ${fecha}.`;
+                    tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-800">>>> CERO OBJETOS DETECTADOS EN ESTA FECHA.</td></tr>`;
                     return;
                 }
 
+                status.innerHTML = `>>> CONEXIÓN ESTABLECIDA.<br>>>> DATOS T ${fecha} RECUPERADOS.<br>>>> OBJETOS IDENTIFICADOS: ${data.length}.`;
                 tabla.innerHTML = "";
-
-                objetos.forEach(ast => {
+                
+                data.forEach(ast => {
                     const tr = document.createElement('tr');
-                    tr.className = `border-b border-green-900/30 hover:bg-green-900/10 transition-colors ${ast.peligro ? 'danger-row' : ''}`;
-                    
-                    const veloc = Math.round(ast.velocidad).toLocaleString('es-ES');
-
+                    tr.className = `border-b border-green-900/30 ${ast.p ? 'danger-row' : ''}`;
                     tr.innerHTML = `
-                        <td class="py-4 px-3 font-bold ${ast.peligro ? 'text-white' : 'text-green-300'}">${ast.nombre}</td>
-                        <td class="py-4 px-3 text-right opacity-90">${veloc}</td>
-                        <td class="py-4 px-3 text-right opacity-90">${ast.diametro.toFixed(1)}</td>
-                        <td class="py-4 px-3 text-right font-bold uppercase">
-                            ${ast.peligro ? 
-                                '<span class="status-danger">PELIGRO</span>' : 
-                                '<span class="status-safe">Seguro</span>'}
-                        </td>
-                    `;
+                        <td class="py-4 px-3 font-bold ${ast.p ? 'text-white' : 'text-green-300'}">${ast.n}</td>
+                        <td class="py-4 px-3 text-right">${Math.round(ast.v).toLocaleString('es-ES')}</td>
+                        <td class="py-4 px-3 text-right">${ast.d.toFixed(1)}</td>
+                        <td class="py-4 px-3 text-right font-bold uppercase">${ast.p ? '<span class="status-danger">PELIGRO</span>' : '<span class="status-safe">Seguro</span>'}</td>`;
                     tabla.appendChild(tr);
                 });
-
-            } catch (error) {
-                status.innerHTML = `>>> ERROR CRÍTICO: ${error.message}`;
-                tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-red-700 font-bold">>>> FALLO DE COMUNICACIÓN CON NASA_SERVER.</td></tr>`;
+            } catch (e) {
+                status.innerHTML = `>>> ERROR CRÍTICO: ${e.message}`;
+                tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-red-700">>>> FALLO EN EL PROCESAMIENTO DE DATOS.</td></tr>`;
             }
         }
     </script>
