@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MultipliMágico v2 | ¡Aprende con Magia!</title>
+    <title>Multiplica | Aprendiendo las tablas</title>
+    
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+    
     <style>
         body { 
             font-family: 'Fredoka', sans-serif; 
-            background-color: #f0f9ff; /* Azul cielo muy pálido, casi blanco */
+            background-color: #f0f9ff; 
             color: #1e293b;
-            overflow: hidden; /* Evitamos el scroll para efecto "Single Screen" */
+            overflow: hidden; 
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100vh;
         }
-        /* Tarjeta principal con efecto "Pizarra de Cristal Flotante" */
         .glass-panel {
             background: rgba(255, 255, 255, 0.9);
             border-radius: 40px;
@@ -25,13 +27,13 @@
             box-shadow: 0 20px 50px rgba(59, 130, 246, 0.08);
             backdrop-filter: blur(5px);
         }
-        /* Fichas de resultado con Neumorfismo ligero */
         .magic-chip {
             background: #ffffff;
             border: 2px solid #e0f2fe;
             border-radius: 24px;
             box-shadow: 2px 2px 8px rgba(59, 130, 246, 0.03);
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            opacity: 0; /* Controlado por animación JS */
         }
         .magic-chip:hover {
             transform: translateY(-5px) scale(1.03);
@@ -39,7 +41,6 @@
             background-color: #eff6ff;
             box-shadow: 0 10px 20px rgba(59, 130, 246, 0.1);
         }
-        /* Input infantil nítido y limpio */
         .input-burbuja {
             border: 2px solid #e0f2fe;
             border-radius: 20px;
@@ -53,7 +54,6 @@
             background-color: #ffffff;
             box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
         }
-        /* Botón con efecto de "Pulsación Táctil" */
         .btn-premium {
             background: #3b82f6;
             color: white;
@@ -61,14 +61,16 @@
             transition: all 0.2s;
             box-shadow: 0 8px 15px rgba(59, 130, 246, 0.2);
         }
-        .btn-premium:hover {
-            background-color: #2563eb;
-            transform: translateY(-2px);
+        .btn-premium:hover { background-color: #2563eb; transform: translateY(-2px); }
+        .btn-premium:active { transform: translateY(1px); }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.8) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
         }
-        .btn-premium:active {
-            transform: translateY(1px);
-            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
-        }
+
+        .loading-text:after { content: ' .'; animation: dots 1s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { color: rgba(0,0,0,0); } 40% { color: inherit; } 60% { text-shadow: .5em 0 0 inherit; } 80%, 100% { text-shadow: .5em 0 0 inherit, 1em 0 0 inherit; } }
     </style>
 </head>
 <body class="p-4">
@@ -80,8 +82,8 @@
                 <div class="inline-block p-3 bg-blue-100 rounded-3xl mb-4">
                     <span class="text-4xl">🧮</span>
                 </div>
-                <h1 class="text-3xl font-bold text-slate-950 mb-2">Generador de Tablas de multiplicar</h1>
-                <p class="text-slate-500 text-sm mb-8 leading-relaxed">¿De qué número quieres la tabla?</p>
+                <h1 class="text-3xl font-bold text-slate-950 mb-2">Multiplica</h1>
+                <p id="status-motor" class="text-slate-500 text-sm mb-8 leading-relaxed loading-text">Cargando magia matemática</p>
                 
                 <div class="space-y-4">
                     <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 tracking-widest">¿Qué tabla quieres?</label>
@@ -89,13 +91,13 @@
                            class="input-burbuja w-full p-5 text-4xl font-bold mb-4" 
                            placeholder="?" min="1" max="99">
                     
-                    <button onclick="generarTabla()" class="btn-premium w-full py-5 text-lg font-bold uppercase tracking-wider">
-                        ✨ ¡Generar Tabla!
+                    <button id="btn-generar" disabled onclick="generarTabla()" class="btn-premium w-full py-5 text-lg font-bold uppercase tracking-wider opacity-50 cursor-wait">
+                         ¡Generar Tabla!
                     </button>
                 </div>
             </div>
             
-            <p class="text-[10px] text-slate-300 mt-10 md:mt-0">Math Academy // Premium Edu v2.0</p>
+            <p class="text-[10px] text-slate-300 mt-10 md:mt-0">Math Academy // Python Browser Edition</p>
         </div>
 
         <div class="w-full md:w-2/3 bg-slate-50 rounded-[32px] p-8 border border-slate-100 flex items-center justify-center h-full">
@@ -106,29 +108,59 @@
                 </div>
             </div>
         </div>
-
     </div>
 
     <script>
+        let pyo;
+
+        async function init() {
+            try {
+                pyo = await loadPyodide();
+                const btn = document.getElementById('btn-generar');
+                const status = document.getElementById('status-motor');
+                
+                status.innerText = "¿De qué número quieres la tabla?";
+                status.classList.remove('loading-text');
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-wait');
+            } catch (e) {
+                document.getElementById('status-motor').innerText = "Error al iniciar motor Python";
+            }
+        }
+        init();
+
         async function generarTabla() {
             const num = document.getElementById('numero-input').value;
             const contenedor = document.getElementById('contenedor-tabla');
 
             if (!num) return;
 
-            try {
-                // Llamada a tu API de Python
-                const response = await fetch(`http://127.0.0.1:8000/tabla/${num}`);
-                const data = await response.json();
+            // Inyección de la lógica original de tablas_api.py
+            const pyCode = `
+import json
 
-                contenedor.innerHTML = ""; // Limpiar panel
+def obtener_tabla(numero):
+    tabla = []
+    for i in range(1, 11):
+        tabla.append({
+            "multiplicador": i,
+            "resultado": numero * i
+        })
+    return json.dumps({"numero": numero, "tabla": tabla})
+
+obtener_tabla(${num})
+            `;
+
+            try {
+                const res = await pyo.runPythonAsync(pyCode);
+                const data = JSON.parse(res);
+
+                contenedor.innerHTML = ""; 
 
                 data.tabla.forEach((item, index) => {
                     const ficha = document.createElement('div');
                     ficha.className = "magic-chip p-5 flex flex-col items-center justify-center";
-                    // Animación individual con retraso (Staggered animation)
                     ficha.style.animation = `popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards ${index * 0.04}s`;
-                    ficha.style.opacity = '0'; // Inicialmente oculto para la animación
                     
                     ficha.innerHTML = `
                         <span class="text-[10px] text-blue-400 font-semibold mb-1">${data.numero} x ${item.multiplicador}</span>
@@ -138,18 +170,9 @@
                 });
 
             } catch (error) {
-                alert("¡Ups! Parece que los números están jugando al escondite. Inténtalo de nuevo.");
+                alert("¡Ups! Parece que los números están jugando al escondite.");
             }
         }
     </script>
-
-    <style>
-        /* Animación de entrada tipo "burbuja" */
-        @keyframes popIn {
-            from { opacity: 0; transform: scale(0.8) translateY(10px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-    </style>
-
 </body>
 </html>

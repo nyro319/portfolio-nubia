@@ -4,12 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PPT Game | Marcador Compacto</title>
+    
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    
     <style>
         .font-game { font-family: 'Bungee', cursive; }
         .choice-btn:hover { transform: translateY(-5px) scale(1.05); }
         .score-pop { transform: scale(1.2); color: #fbbf24; transition: all 0.2s; }
+        .loading-text:after { content: ' .'; animation: dots 1s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { color: rgba(0,0,0,0); } 40% { color: inherit; } 60% { text-shadow: .5em 0 0 inherit; } 80%, 100% { text-shadow: .5em 0 0 inherit, 1em 0 0 inherit; } }
     </style>
 </head>
 <body class="bg-indigo-950 min-h-screen flex items-center justify-center p-4">
@@ -17,7 +22,8 @@
     <div class="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border-[10px] border-indigo-400">
         
         <div class="bg-indigo-600 p-8 text-center">
-            <h1 class="text-white font-game text-xl tracking-widest mb-6">PIEDRA PAPEL TIJERAS</h1>
+            <h1 class="text-white font-game text-xl tracking-widest mb-2">PIEDRA PAPEL TIJERAS</h1>
+            <p id="cpu-status" class="text-[9px] text-indigo-300 font-bold uppercase tracking-widest mb-6 loading-text">Cargando IA de juego</p>
             
             <div class="max-w-[260px] mx-auto flex justify-between items-center bg-indigo-900/40 py-3 px-6 rounded-2xl border border-indigo-400/30 shadow-inner">
                 <div class="flex flex-col items-center">
@@ -42,15 +48,15 @@
 
         <div class="p-8">
             <div class="grid grid-cols-3 gap-3 mb-10">
-                <button onclick="enviarJugada('piedra')" class="choice-btn transition-all duration-300 bg-slate-50 p-5 rounded-2xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1">
+                <button id="btn-piedra" disabled onclick="enviarJugada('piedra')" class="choice-btn transition-all duration-300 bg-slate-50 p-5 rounded-2xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 disabled:opacity-50">
                     <span class="text-4xl block mb-2">🪨</span>
                     <span class="font-game text-[9px] text-slate-500">PIEDRA</span>
                 </button>
-                <button onclick="enviarJugada('papel')" class="choice-btn transition-all duration-300 bg-slate-50 p-5 rounded-2xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1">
+                <button id="btn-papel" disabled onclick="enviarJugada('papel')" class="choice-btn transition-all duration-300 bg-slate-50 p-5 rounded-2xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 disabled:opacity-50">
                     <span class="text-4xl block mb-2">📄</span>
                     <span class="font-game text-[9px] text-slate-500">PAPEL</span>
                 </button>
-                <button onclick="enviarJugada('tijeras')" class="choice-btn transition-all duration-300 bg-slate-50 p-5 rounded-2xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1">
+                <button id="btn-tijeras" disabled onclick="enviarJugada('tijeras')" class="choice-btn transition-all duration-300 bg-slate-50 p-5 rounded-2xl border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 disabled:opacity-50">
                     <span class="text-4xl block mb-2">✂️</span>
                     <span class="font-game text-[9px] text-slate-500">TIJERAS</span>
                 </button>
@@ -80,24 +86,58 @@
     <script>
         const iconos = { 'piedra': '🪨', 'papel': '📄', 'tijeras': '✂️' };
         let vJugador = 0, vBot = 0;
+        let pyo;
+
+        async function init() {
+            try {
+                pyo = await loadPyodide();
+                document.getElementById('cpu-status').innerText = "IA de juego: ONLINE";
+                document.getElementById('cpu-status').classList.remove('loading-text');
+                document.querySelectorAll('.choice-btn').forEach(b => b.disabled = false);
+            } catch (e) {
+                document.getElementById('cpu-status').innerText = "Error de motor";
+            }
+        }
+        init();
 
         async function enviarJugada(eleccion) {
-            try {
-                const response = await fetch('http://127.0.0.1:8000/jugar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ eleccion_usuario: eleccion })
-                });
-                const data = await response.json();
+            const pyCode = `
+import json
+import random
 
-                // Actualizar iconos y texto
+def jugar(usuario):
+    opciones = ["piedra", "papel", "tijeras"]
+    computadora = random.choice(opciones)
+    
+    if usuario == computadora:
+        resultado, status = "¡EMPATE!", "draw"
+    elif (usuario == "piedra" and computadora == "tijeras") or \\
+         (usuario == "papel" and computadora == "piedra") or \\
+         (usuario == "tijeras" and computadora == "papel"):
+        resultado, status = "¡GANASTE!", "win"
+    else:
+        resultado, status = "¡PERDISTE!", "lose"
+
+    return json.dumps({
+        "usuario": usuario,
+        "computadora": computadora,
+        "resultado": resultado,
+        "status": status
+    })
+
+jugar("${eleccion}")
+            `;
+
+            try {
+                const res = await pyo.runPythonAsync(pyCode);
+                const data = JSON.parse(res);
+
                 document.getElementById('icon-user').innerText = iconos[data.usuario];
                 document.getElementById('icon-bot').innerText = iconos[data.computadora];
                 
                 const textoRes = document.getElementById('texto-resultado');
                 textoRes.innerText = data.resultado;
                 
-                // Marcador
                 if (data.status === 'win') {
                     vJugador++;
                     updateScore('score-user', vJugador);
@@ -111,7 +151,7 @@
 
                 document.getElementById('pantalla-resultado').classList.remove('hidden');
             } catch (e) {
-                alert("Servidor Python (uvicorn) apagado.");
+                console.error(e);
             }
         }
 

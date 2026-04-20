@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generador de Tickets | Portfolio Dev</title>
+    
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    
     <style>
         body { font-family: 'Inter', sans-serif; }
         .ticket-font { font-family: 'Courier Prime', monospace; }
@@ -24,6 +27,8 @@
             background: linear-gradient(-135deg, white 5px, transparent 0), linear-gradient(135deg, white 5px, transparent 0);
             background-size: 10px 10px;
         }
+        .loading-dots:after { content: ' .'; animation: dots 1s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { color: rgba(0,0,0,0); } 40% { color: inherit; } 60% { text-shadow: .5em 0 0 inherit; } 80%, 100% { text-shadow: .5em 0 0 inherit, 1em 0 0 inherit; } }
     </style>
 </head>
 <body class="bg-slate-200 min-h-screen py-8 px-4">
@@ -31,7 +36,8 @@
     <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
         
         <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-300">
-            <h2 class="text-xl font-black text-slate-800 mb-6 uppercase tracking-tight">Punto de Venta (TPV)</h2>
+            <h2 class="text-xl font-black text-slate-800 mb-2 uppercase tracking-tight">Punto de Venta (TPV)</h2>
+            <p id="status-motor" class="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-6 loading-dots">Iniciando motor de precios</p>
             
             <div class="space-y-6">
                 <div>
@@ -40,8 +46,8 @@
                         <option value="" disabled selected>-- Elegir artículo --</option>
                         <option value="Camiseta Algodón">Camiseta Algodón (15.00€)</option>
                         <option value="Pantalón Vaquero">Pantalón Vaquero (35.50€)</option>
-                        <option value="Zapatillas Running">Zapatillas Running (59.99€)</option>
-                        <option value="Gorra Sport">Gorra Sport (12.00€)</option>
+                        <option value="Zapatillas de deporte">Zapatillas de deporte (59.99€)</option>
+                        <option value="Paraguas">Paraguas (12.00€)</option>
                         <option value="Sudadera con Capucha">Sudadera con Capucha (25.00€)</option>
                     </select>
                 </div>
@@ -52,7 +58,7 @@
                     <p class="text-[10px] text-slate-400 mt-2">* 5% de descuento por compras de 10 o más unidades.</p>
                 </div>
 
-                <button onclick="procesarTicket()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-200 active:scale-95">
+                <button id="btn-generar" disabled onclick="procesarTicket()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-200 active:scale-95 disabled:opacity-50 disabled:cursor-wait">
                     GENERAR TICKET
                 </button>
             </div>
@@ -111,6 +117,20 @@
     </div>
 
     <script>
+        let pyo;
+
+        async function init() {
+            try {
+                pyo = await loadPyodide();
+                document.getElementById('status-motor').innerText = "Motor de precios: ONLINE";
+                document.getElementById('status-motor').classList.remove('loading-dots');
+                document.getElementById('btn-generar').disabled = false;
+            } catch (e) {
+                document.getElementById('status-motor').innerText = "Error de motor";
+            }
+        }
+        init();
+
         async function procesarTicket() {
             const prod = document.getElementById('producto').value;
             const cant = document.getElementById('cantidad').value;
@@ -120,22 +140,46 @@
                 return;
             }
 
+            const pyCode = `
+import json
+from datetime import datetime
+
+CATALOGO = {
+    "Camiseta Algodón": 15.00,
+    "Pantalón Vaquero": 35.50,
+    "Zapatillas de deporte": 59.99,
+    "Paraguas": 12.00,
+    "Sudadera con Capucha": 25.00
+}
+
+def generar_ticket(producto, cantidad):
+    precio_unitario = CATALOGO.get(producto, 0.0)
+    
+    subtotal_base = precio_unitario * cantidad
+    descuento = subtotal_base * 0.05 if cantidad >= 10 else 0
+    subtotal_con_desc = subtotal_base - descuento
+    iva = subtotal_con_desc * 0.21
+    total = subtotal_con_desc + iva
+    
+    return json.dumps({
+        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "producto": producto.upper(),
+        "precio_uni": precio_unitario,
+        "cantidad": cantidad,
+        "subtotal": round(subtotal_base, 2),
+        "descuento": round(descuento, 2),
+        "iva": round(iva, 2),
+        "total": round(total, 2)
+    })
+
+generar_ticket("${prod}", ${parseInt(cant)})
+            `;
+
             try {
-                // LLAMADA A TU API DE PYTHON
-                const response = await fetch('http://127.0.0.1:8000/generar-ticket', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        producto: prod, 
-                        cantidad: parseInt(cant) 
-                    })
-                });
+                const res = await pyo.runPythonAsync(pyCode);
+                const data = JSON.parse(res);
 
-                if (!response.ok) throw new Error("Error en la respuesta del servidor");
-
-                const data = await response.json();
-
-                // MAPEO DE DATOS AL HTML
+                // Mapeo de datos al HTML original
                 document.getElementById('res-fecha').innerText = data.fecha;
                 document.getElementById('res-desc-prod').innerText = data.producto;
                 document.getElementById('res-subtotal-base').innerText = data.subtotal.toFixed(2) + " €";
@@ -144,18 +188,15 @@
                 document.getElementById('res-iva').innerText = data.iva.toFixed(2) + " €";
                 document.getElementById('res-total').innerText = data.total.toFixed(2) + " €";
 
-                // ANIMACIÓN DE ENTRADA
                 const container = document.getElementById('ticket-container');
                 container.classList.remove('hidden');
-                // Un pequeño delay para que la transición CSS se note
                 setTimeout(() => {
                     container.classList.remove('opacity-0', 'translate-y-4');
                     container.classList.add('opacity-100', 'translate-y-0');
                 }, 50);
 
             } catch (e) {
-                console.error(e);
-                alert("ERROR: No se pudo conectar con el servidor Python (uvicorn).");
+                alert("Error al procesar el ticket.");
             }
         }
     </script>
