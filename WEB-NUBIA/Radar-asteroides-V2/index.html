@@ -3,169 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SISTEMA DE MONITOREO NEO v1.0 | Portfolio Edition</title>
+    <title>NEO_TRACKER - NASA DEEP SPACE NETWORK</title>
     
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+
     <style>
         body { 
-            font-family: 'JetBrains Mono', monospace; 
-            background-color: #000000; 
-            color: #22c55e; 
-            -webkit-font-smoothing: antialiased;
+            font-family: 'VT323', monospace; 
+            background-color: #000000; /* Negro liso */
+            color: #1aff1a; 
+            overflow-x: hidden;
         }
-        .danger-row { background-color: rgba(220, 38, 38, 0.1); color: #4ade80; }
-        .status-danger { color: #ef4444 !important; font-weight: bold; text-transform: uppercase; }
-        .status-safe { color: #166534; font-weight: bold; }
-        .retro-btn {
-            background-color: transparent;
-            border: 2px solid #22c55e;
-            color: #22c55e;
-            transition: all 0.2s ease;
-        }
-        .retro-btn:hover:not(:disabled) { background-color: #22c55e; color: #000000; }
-        th {
-            font-size: 1.25rem; 
-            font-weight: 700;
-            color: #22c55e;
-            border-bottom: 2px solid #166534;
+
+        .terminal-container { border: 1px solid #1aff1a44; }
+        
+        /* --- AJUSTE DE COLUMNAS --- */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; color: #1aff1a; }
+        
+        th { 
+            text-align: left; 
+            border-bottom: 2px solid #1aff1a; 
+            padding: 10px; 
+            color: #1aff1a; 
+            font-size: 1.8rem; /* TAMAÑO DE LETRA MÁS GRANDE */
             text-transform: uppercase;
         }
+        
+        td { padding: 12px 10px; border-bottom: 1px solid #1aff1a22; font-size: 1.3rem; }
+        
+        .peligro { color: #ff3333; font-weight: bold; }
+        .seguro { color: #1aff1a; }
+
         input[type="date"] {
-            color-scheme: dark;
-            background-color: transparent;
-            border: 1px solid #166534;
-            color: #22c55e;
+            background: transparent;
+            border: 1px solid #1aff1a;
+            color: #1aff1a;
+            padding: 2px 8px;
+            font-family: inherit;
+            font-size: 1.2rem;
         }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(80%) sepia(50%) saturate(1000%) hue-rotate(80deg);
+            cursor: pointer;
+        }
+
+        #btn-scan {
+            background: transparent;
+            border: 1px solid #1aff1a;
+            color: #1aff1a;
+            padding: 2px 25px;
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #btn-scan:hover:not(:disabled) { background: #1aff1a; color: #000; }
+        #btn-scan:disabled { opacity: 0.3; }
     </style>
 </head>
-<body class="min-h-screen p-6 md:p-10">
+<body class="p-8">
 
     <div class="max-w-5xl mx-auto">
-        <header class="flex flex-col md:flex-row justify-between items-start mb-10 border-b-2 border-green-900 pb-8 gap-6">
+        <header class="flex justify-between items-start mb-12">
             <div>
-                <h1 class="text-2xl font-bold text-white tracking-tight">NEO_TRACKER</h1>
-                <p class="text-xs mt-1">BASE DE DATOS: NASA DEEP SPACE NETWORK</p>
+                <h1 class="text-4xl font-bold tracking-widest">NEO_TRACKER</h1>
+                <p class="text-sm opacity-70">BASE DE DATOS: NASA DEEP SPACE NETWORK</p>
             </div>
-            
-            <div class="flex flex-col sm:flex-row gap-4 items-center border border-green-900 p-3 bg-black">
-                <label for="fecha-scan" class="text-xs uppercase">FECHA ANÁLISIS:</label>
-                <input type="date" id="fecha-scan" class="px-3 py-1.5 text-sm outline-none focus:border-green-400 rounded-sm">
-                <button id="btn-scan" disabled onclick="escanearEspacio()" class="retro-btn px-6 py-1.5 rounded-sm text-sm font-bold uppercase tracking-wider">
-                    SCAN
-                </button>
+            <div class="flex items-center gap-4">
+                <span class="text-sm">FECHA ANÁLISIS:</span>
+                <input type="date" id="fecha-input">
+                <button id="btn-scan" disabled>SCAN</button>
             </div>
         </header>
 
-        <div id="status-box" class="text-xs text-green-700 mb-8 font-light italic">
-            >>> SISTEMA INICIADO<br>
-            <span id="python-status">>>> CARGANDO NÚCLEO...</span>
+        <div id="logs" class="mb-8 text-lg space-y-1">
+            <div class="opacity-50">>>> SISTEMA INICIADO</div>
+            <div class="opacity-50" id="python-status">>>> CARGANDO NÚCLEO...</div>
         </div>
 
-        <div class="border border-green-900 bg-black p-2 overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr>
-                        <th class="py-4 px-3 tracking-wider">OBJ_ID</th>
-                        <th class="py-4 px-3 tracking-wider text-right">VELOCIDAD (KM/H)</th>
-                        <th class="py-4 px-3 tracking-wider text-right">DIA_MÁX (M)</th>
-                        <th class="py-4 px-3 tracking-wider text-right">ESTADO</th>
-                    </tr>
-                </thead>
-                <tbody id="lista-asteroides" class="text-sm">
-                    <tr>
-                        <td colspan="4" class="py-24 text-center text-green-800">>>> NO HAY DATOS DISPONIBLES. EJECUTE UN ESCANEO.</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="terminal-container min-h-[400px] p-4 bg-[#050505]">
+            <div id="output" class="w-full overflow-x-auto text-center py-20 opacity-40">
+                >>> NO HAY DATOS DISPONIBLES. EJECUTE UN ESCANEO.
+            </div>
         </div>
     </div>
 
     <script>
-        let pyo;
         async function init() {
+            const output = document.getElementById("output");
+            const logs = document.getElementById("logs");
+            const btn = document.getElementById("btn-scan");
+            const pythonStatus = document.getElementById("python-status");
+
+            document.getElementById("fecha-input").valueAsDate = new Date();
+
             try {
-                pyo = await loadPyodide();
-                document.getElementById('python-status').innerHTML = ">>> SISTEMA_PYTHON: ONLINE. ESPERANDO COMANDO SCAN...";
-                document.getElementById('btn-scan').disabled = false;
+                const pyodide = await loadPyodide();
+                await pyodide.loadPackage("pandas");
+                
+                pythonStatus.innerText = ">>> ESPERANDO ENTRADA DE FECHA Y COMANDO SCAN...";
+                btn.disabled = false;
+
+                const code = `
+from pyodide.http import pyfetch
+import pandas as pd
+
+async def run_scan(fecha):
+    url = f"https://api.nasa.gov/neo/rest/v1/feed?start_date={fecha}&api_key=DEMO_KEY"
+    resp = await pyfetch(url)
+    data = await resp.json()
+    
+    all_objs = []
+    for f in data["near_earth_objects"]:
+        for o in data["near_earth_objects"][f]:
+            all_objs.append({
+                "OBJ_ID": o["name"],
+                "VELOCIDAD (KM/H)": f"{float(o['close_approach_data'][0]['relative_velocity']['kilometers_per_hour']):,.0f}",
+                "DIA_MÁX (M)": f"{o['estimated_diameter']['meters']['estimated_diameter_max']:.1f}",
+                "ESTADO": "PELIGRO" if o["is_potentially_hazardous_asteroid"] else "SEGURO"
+            })
+    
+    df = pd.DataFrame(all_objs)
+    html = df.to_html(index=False, border=0)
+    html = html.replace("PELIGRO", "<span class='peligro'>PELIGRO</span>")
+    html = html.replace("SEGURO", "<span class='seguro'>SEGURO</span>")
+    return len(all_objs), html
+                `;
+                await pyodide.runPythonAsync(code);
+
+                btn.onclick = async () => {
+                    const fecha = document.getElementById("fecha-input").value;
+                    if(!fecha) return;
+
+                    output.innerHTML = "<div class='py-20 animate-pulse'>>>> RECUPERANDO DATOS...</div>";
+                    logs.innerHTML += `<div>>>> RECUPERANDO DATOS T: ${fecha}...</div>`;
+
+                    const [count, tableHtml] = await pyodide.runPythonAsync(`await run_scan("${fecha}")`);
+                    
+                    logs.innerHTML += `<div class='text-green-400'>>>> OBJETOS IDENTIFICADOS: ${count}.</div>`;
+                    output.innerHTML = tableHtml;
+                };
+
             } catch (e) {
-                document.getElementById('python-status').innerHTML = ">>> ERROR AL INICIAR NÚCLEO.";
+                pythonStatus.innerText = ">>> ERROR EN NÚCLEO.";
             }
         }
         init();
-
-        document.getElementById('fecha-scan').valueAsDate = new Date();
-
-        async function escanearEspacio() {
-            const fecha = document.getElementById('fecha-scan').value;
-            const status = document.getElementById('status-box');
-            const tabla = document.getElementById('lista-asteroides');
-            
-            status.innerHTML = `>>> INICIANDO CONEXIÓN NASA API...<br>>>> RECUPERANDO DATOS T: ${fecha}...`;
-            tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-700 animate-pulse">>>> RECUPERANDO DATOS...</td></tr>`;
-
-            const pyCode = `
-from pyodide.http import pyfetch
-import json
-
-async def fetch_data(d):
-    try:
-        url = f"https://api.nasa.gov/neo/rest/v1/feed?start_date={d}&end_date={d}&api_key=DEMO_KEY"
-        resp = await pyfetch(url)
-        js = await resp.json()
-        
-        neo_data = js.get("near_earth_objects", {})
-        # Buscamos los datos de la fecha seleccionada o cualquier fecha disponible en el rango
-        day_list = []
-        for date_key in neo_data:
-            day_list.extend(neo_data[date_key])
-        
-        res = []
-        for o in day_list:
-            res.append({
-                "n": o["name"],
-                "v": float(o["close_approach_data"][0]["relative_velocity"]["kilometers_per_hour"]),
-                "d": o["estimated_diameter"]["meters"]["estimated_diameter_max"],
-                "p": o["is_potentially_hazardous_asteroid"]
-            })
-        return json.dumps(res)
-    except Exception as e:
-        return json.dumps({"error": str(e)})
-
-await fetch_data("${fecha}")`;
-
-            try {
-                const out = await pyo.runPythonAsync(pyCode);
-                const data = JSON.parse(out);
-                
-                if (data.error) throw new Error(data.error);
-
-                if (data.length === 0) {
-                    status.innerHTML = `>>> CONEXIÓN ESTABLECIDA.<br>>>> NO SE ENCONTRARON DATOS PARA LA FECHA ${fecha}.`;
-                    tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-green-800">>>> CERO OBJETOS DETECTADOS EN ESTA FECHA.</td></tr>`;
-                    return;
-                }
-
-                status.innerHTML = `>>> CONEXIÓN ESTABLECIDA.<br>>>> DATOS T ${fecha} RECUPERADOS.<br>>>> OBJETOS IDENTIFICADOS: ${data.length}.`;
-                tabla.innerHTML = "";
-                
-                data.forEach(ast => {
-                    const tr = document.createElement('tr');
-                    tr.className = `border-b border-green-900/30 ${ast.p ? 'danger-row' : ''}`;
-                    tr.innerHTML = `
-                        <td class="py-4 px-3 font-bold ${ast.p ? 'text-white' : 'text-green-300'}">${ast.n}</td>
-                        <td class="py-4 px-3 text-right">${Math.round(ast.v).toLocaleString('es-ES')}</td>
-                        <td class="py-4 px-3 text-right">${ast.d.toFixed(1)}</td>
-                        <td class="py-4 px-3 text-right font-bold uppercase">${ast.p ? '<span class="status-danger">PELIGRO</span>' : '<span class="status-safe">Seguro</span>'}</td>`;
-                    tabla.appendChild(tr);
-                });
-            } catch (e) {
-                status.innerHTML = `>>> ERROR: ${e.message}`;
-                tabla.innerHTML = `<tr><td colspan="4" class="py-24 text-center text-red-700">>>> FALLO EN EL PROCESAMIENTO DE DATOS.</td></tr>`;
-            }
-        }
     </script>
 </body>
 </html>
