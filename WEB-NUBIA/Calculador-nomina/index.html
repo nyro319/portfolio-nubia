@@ -4,10 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payroll System | Junior Portfolio</title>
+    
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
     <style>
         body { font-family: 'Inter', sans-serif; }
+        .loading-text:after { content: ' .'; animation: dots 1s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { color: rgba(0,0,0,0); } 40% { color: inherit; } 60% { text-shadow: .5em 0 0 inherit; } 80%, 100% { text-shadow: .5em 0 0 inherit, 1em 0 0 inherit; } }
     </style>
 </head>
 <body class="bg-[#f8fafc] min-h-screen py-12 px-4">
@@ -15,7 +20,7 @@
     <div class="max-w-2xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Sistema de Gestión de Nóminas</h1>
-            <p class="text-slate-500 mt-2 text-lg">Cálculo de retenciones IRPF basado en lógica Python OOP</p>
+            <p id="sistema-status" class="text-slate-500 mt-2 text-lg loading-text">Cargando motor de cálculo Python</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -34,7 +39,7 @@
                         <label class="text-xs font-semibold text-slate-500 uppercase">Salario Bruto Mensual (€)</label>
                         <input type="number" id="nomina" placeholder="2400" class="w-full mt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
                     </div>
-                    <button onclick="enviarDatos()" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-blue-200 active:scale-[0.98]">
+                    <button id="btn-procesar" disabled onclick="procesarNomina()" class="w-full bg-slate-900 hover:bg-blue-600 text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-blue-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-wait">
                         Procesar Nómina
                     </button>
                 </div>
@@ -52,19 +57,19 @@
                     <h2 class="text-sm font-bold text-green-600 uppercase tracking-wider mb-6 text-center">Desglose Calculado</h2>
                     <div class="space-y-3">
                         <div class="flex justify-between border-b border-slate-50 pb-2">
-                            <span class="text-slate-500 italic" id="res-puesto"></span>
+                            <span class="text-slate-500 italic text-sm" id="res-puesto"></span>
                             <span class="font-bold text-slate-900" id="res-nombre"></span>
                         </div>
                         <div class="flex justify-between pt-2">
-                            <span class="text-slate-500">Anual Bruto:</span>
-                            <span class="font-semibold" id="res-anual"></span>
+                            <span class="text-slate-500 text-sm">Anual Bruto:</span>
+                            <span class="font-semibold text-slate-700" id="res-anual"></span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-500">Retención IRPF:</span>
+                            <span class="text-slate-500 text-sm">Retención IRPF:</span>
                             <span class="font-semibold text-red-500" id="res-irpf"></span>
                         </div>
                         <div class="mt-6 bg-blue-50 p-4 rounded-xl text-center">
-                            <span class="block text-xs text-blue-600 font-bold uppercase">Salario Neto Anual</span>
+                            <span class="block text-[10px] text-blue-600 font-bold uppercase tracking-widest mb-1">Salario Neto Anual</span>
                             <span class="text-3xl font-black text-blue-700" id="res-neto"></span>
                         </div>
                     </div>
@@ -74,30 +79,72 @@
     </div>
 
     <script>
-        async function enviarDatos() {
+        let pyo;
+
+        // Inicializar motor Python
+        async function init() {
+            try {
+                pyo = await loadPyodide();
+                document.getElementById('sistema-status').innerText = "Cálculo de retenciones IRPF basado en lógica Python OOP";
+                document.getElementById('sistema-status').classList.remove('loading-text');
+                document.getElementById('btn-procesar').disabled = false;
+            } catch (e) {
+                document.getElementById('sistema-status').innerText = "Error al cargar núcleo de cálculo";
+            }
+        }
+        init();
+
+        async function procesarNomina() {
             const nombre = document.getElementById('nombre').value;
-            const puesto = document.getElementById('puesto').value;
+            const puesto = document.getElementById('puesto').value || "Empleado";
             const nomina = document.getElementById('nomina').value;
 
             if(!nombre || !nomina) {
-                alert("Por favor, rellena los campos principales.");
+                alert("Por favor, rellena el nombre y el salario mensual.");
                 return;
             }
 
+            // Inyección de la lógica OOP original de main.py
+            const pyCode = `
+import json
+
+class Empleado:
+    def __init__(self, nombre, puesto, nomina):
+        self.nombre = nombre
+        self.puesto = puesto
+        self.nomina = float(nomina)
+        self.anualbruta = self.nomina * 12
+
+    def calcular_irpf(self):
+        if self.anualbruta > 30000:
+            return self.anualbruta * 0.21
+        else:
+            return self.anualbruta * 0.15
+
+    def calcular_neto(self, retencion):
+        return self.anualbruta - retencion
+
+def ejecutar_calculo(n, p, m):
+    emp = Empleado(n, p, m)
+    ret = emp.calcular_irpf()
+    neto = emp.calcular_neto(ret)
+    
+    return json.dumps({
+        "nombre": emp.nombre,
+        "puesto": emp.puesto,
+        "anual_bruta": emp.anualbruta,
+        "irpf": ret,
+        "neto_anual": neto
+    })
+
+ejecutar_calculo("${nombre}", "${puesto}", ${nomina})
+            `;
+
             try {
-                const respuesta = await fetch('http://127.0.0.1:8000/calcular', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        nombre: nombre,
-                        puesto: puesto,
-                        nomina_mensual: parseFloat(nomina)
-                    })
-                });
+                const out = await pyo.runPythonAsync(pyCode);
+                const data = JSON.parse(out);
 
-                const data = await respuesta.json();
-
-                // Animación y visualización
+                // Actualizar Interfaz (Mantiene las funciones originales de tu index.html)
                 document.getElementById('resultado').classList.remove('opacity-30');
                 document.getElementById('placeholder-text').classList.add('hidden');
                 document.getElementById('datos-salida').classList.remove('hidden');
@@ -109,8 +156,8 @@
                 document.getElementById('res-neto').innerText = data.neto_anual.toLocaleString('es-ES') + " €";
                 
             } catch (error) {
-                console.error("Error:", error);
-                alert("Error de conexión: Asegúrate de que el servidor FastAPI esté encendido.");
+                console.error(error);
+                alert("Fallo en el procesamiento de la nómina.");
             }
         }
     </script>
