@@ -4,16 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HealthHub | Bio-Panel</title>
+    
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    
     <style>
         body { font-family: 'Outfit', sans-serif; background-color: #f4f9ff; color: #1e293b; }
         .glass-card { background: white; border-radius: 20px; box-shadow: 0 4px 20px rgba(0, 100, 255, 0.04); }
         .input-field { background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; transition: all 0.2s; }
         .input-field:focus { border-color: #3b82f6; background: white; outline: none; }
-        /* Animación suave para los resultados */
+        
         .fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .loading-dots:after { content: ' .'; animation: dots 1s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { color: rgba(0,0,0,0); text-shadow: .5em 0 0 rgba(0,0,0,0), 1em 0 0 rgba(0,0,0,0); } 40% { color: #3b82f6; text-shadow: .5em 0 0 rgba(0,0,0,0), 1em 0 0 rgba(0,0,0,0); } 60% { text-shadow: .5em 0 0 #3b82f6, 1em 0 0 rgba(0,0,0,0); } 80%, 100% { text-shadow: .5em 0 0 #3b82f6, 1em 0 0 #3b82f6; } }
     </style>
 </head>
 <body class="h-screen flex items-center justify-center p-4">
@@ -23,7 +29,7 @@
         <div class="md:col-span-4 glass-card p-6 flex flex-col justify-between border border-blue-50">
             <div>
                 <h1 class="text-xl font-bold text-blue-600 mb-1">HealthHub</h1>
-                <p class="text-xs text-slate-400 mb-6 uppercase tracking-widest font-bold">Panel de Control</p>
+                <p id="status-msg" class="text-[10px] text-slate-400 mb-6 uppercase tracking-widest font-bold">Iniciando sistema...</p>
                 
                 <div class="space-y-4">
                     <div>
@@ -45,7 +51,7 @@
                 </div>
             </div>
 
-            <button onclick="analizar()" class="bg-blue-600 text-white w-full py-4 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 mt-6">
+            <button id="btn-analizar" disabled onclick="analizar()" class="bg-blue-600 text-white w-full py-4 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 mt-6 disabled:opacity-50 disabled:cursor-not-allowed">
                 CALCULAR MÉTRICAS
             </button>
         </div>
@@ -84,42 +90,94 @@
     </div>
 
     <script>
-        async function analizar() {
-            const payload = {
-                peso: parseFloat(document.getElementById('peso').value),
-                altura: parseFloat(document.getElementById('altura').value),
-                horas_sueno: parseFloat(document.getElementById('sueno').value),
-                pasos_diarios: parseInt(document.getElementById('pasos').value)
-            };
+        let pyo;
 
-            if (Object.values(payload).some(v => !v)) return alert("Completa todos los campos");
+        // Inicialización de Pyodide (El servidor interno)
+        async function init() {
+            const status = document.getElementById('status-msg');
+            const btn = document.getElementById('btn-analizar');
+            try {
+                pyo = await loadPyodide();
+                status.innerText = "Panel de Control | Online";
+                btn.disabled = false;
+            } catch (e) {
+                status.innerText = "Error de Sistema";
+            }
+        }
+        init();
+
+        async function analizar() {
+            const peso = parseFloat(document.getElementById('peso').value);
+            const altura = parseFloat(document.getElementById('altura').value);
+            const sueno = parseFloat(document.getElementById('sueno').value);
+            const pasos = parseInt(document.getElementById('pasos').value);
+
+            if (!peso || !altura || !sueno || isNaN(pasos)) return alert("Completa todos los campos");
+
+            // Lógica original de salud_api.py portada a Python interno
+            const pyCode = `
+import json
+
+def analizar_salud(peso, altura, horas_sueno, pasos_diarios):
+    # 1. IMC
+    imc = peso / (altura ** 2)
+    
+    # 2. Hidratación recomendada (35ml por kg)
+    agua_litros = (peso * 35) / 1000
+    
+    # 3. Nivel de Actividad
+    if pasos_diarios < 5000:
+        actividad_msg = "Sedentario. Intenta caminar más."
+        actividad_status = "warning"
+    elif 5000 <= pasos_diarios < 10000:
+        actividad_msg = "Activo. Buen ritmo diario."
+        actividad_status = "safe"
+    else:
+        actividad_msg = "Muy activo. ¡Excelente nivel!"
+        actividad_status = "pro"
+
+    # 4. Sueño
+    sueno_status = "safe" if 7 <= horas_sueno <= 9 else "warning"
+    sueno_msg = "Descanso reparador." if sueno_status == "safe" else "Ajusta tus horas de sueño."
+
+    return json.dumps({
+        "imc": round(imc, 2),
+        "imc_status": "normal" if 18.5 <= imc < 25 else "warning",
+        "agua_recomendada": round(agua_litros, 1),
+        "actividad_msg": actividad_msg,
+        "actividad_status": actividad_status,
+        "sueno_msg": sueno_msg,
+        "sueno_status": sueno_status
+    })
+
+analizar_salud(${peso}, ${altura}, ${sueno}, ${pasos})
+            `;
 
             try {
-                const response = await fetch('http://127.0.0.1:8000/analizar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const d = await response.json();
+                const res = await pyo.runPythonAsync(pyCode);
+                const d = JSON.parse(res);
 
-                // Actualizar Interfaz
+                // Actualizar Interfaz (Mantiene lógica original)
                 document.getElementById('imc-val').innerText = d.imc;
                 document.getElementById('imc-msg').innerText = d.imc_status === 'normal' ? "Rango saludable" : "Fuera de rango ideal";
                 
                 document.getElementById('agua-val').innerText = d.agua_recomendada + "L";
                 
                 document.getElementById('act-msg').innerText = d.actividad_msg;
-                const progress = payload.pasos_diarios > 10000 ? 100 : (payload.pasos_diarios / 10000) * 100;
+                const progress = pasos > 10000 ? 100 : (pasos / 10000) * 100;
                 document.getElementById('act-progress').style.width = progress + "%";
                 document.getElementById('act-progress').className = `h-full transition-all ${d.actividad_status === 'safe' ? 'bg-green-500' : 'bg-blue-500'}`;
 
                 document.getElementById('sueno-msg').innerText = d.sueno_msg;
                 document.getElementById('sueno-icon').className = `w-10 h-10 rounded-full flex items-center justify-center text-xl ${d.sueno_status === 'safe' ? 'bg-green-100' : 'bg-amber-100'}`;
                 
-                document.getElementById('resultado-panel').classList.add('fade-in');
-                setTimeout(() => document.getElementById('resultado-panel').classList.remove('fade-in'), 500);
+                const panel = document.getElementById('resultado-panel');
+                panel.classList.add('fade-in');
+                setTimeout(() => panel.classList.remove('fade-in'), 500);
 
-            } catch (e) { alert("Error de conexión"); }
+            } catch (e) {
+                alert("Error en el procesamiento de datos.");
+            }
         }
     </script>
 </body>
